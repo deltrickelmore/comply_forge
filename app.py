@@ -70,30 +70,93 @@ def _current_catalog(framework_id="nist_800_53") -> str | None:
 # Dashboard
 # --------------------------------------------------------------------------- #
 if PAGE == "Dashboard":
-    st.title("Dashboard")
+    import pandas as pd
     c = conn
-    counts = {
-        "Frameworks registered": c.execute("SELECT COUNT(*) FROM frameworks").fetchone()[0],
-        "Catalog versions": c.execute("SELECT COUNT(*) FROM catalog_versions").fetchone()[0],
-        "Controls loaded": c.execute("SELECT COUNT(*) FROM controls").fetchone()[0],
-        "Baselines": c.execute("SELECT COUNT(*) FROM baselines").fetchone()[0],
-        "CCIs": c.execute("SELECT COUNT(*) FROM cci_items").fetchone()[0],
-        "STIGs": c.execute("SELECT COUNT(*) FROM stigs").fetchone()[0],
-        "Systems": c.execute("SELECT COUNT(*) FROM systems").fetchone()[0],
-        "Answers needing review": c.execute(
-            "SELECT COUNT(*) FROM implemented_requirements WHERE needs_review=1").fetchone()[0],
-    }
-    cols = st.columns(len(counts))
-    for col, (k, v) in zip(cols, counts.items()):
-        col.metric(k, v)
+    n = lambda s: c.execute(s).fetchone()[0]
+    controls = n("SELECT COUNT(*) FROM controls")
+    frameworks = n("SELECT COUNT(*) FROM frameworks")
+    baselines_n = n("SELECT COUNT(*) FROM baselines")
+    ccis = n("SELECT COUNT(*) FROM cci_items")
+    stigs = n("SELECT COUNT(*) FROM stigs")
+    systems = n("SELECT COUNT(*) FROM systems")
+    review = n("SELECT COUNT(*) FROM implemented_requirements WHERE needs_review=1")
+    stig_rules = n("SELECT COUNT(*) FROM stig_rules")
 
-    st.subheader("Framework library by kind")
-    rows = c.execute("SELECT kind, COUNT(*) n FROM frameworks GROUP BY kind ORDER BY n DESC").fetchall()
-    st.dataframe([{"kind": r[0], "count": r[1], "what it is": FRAMEWORK_KINDS.get(r[0], "")}
-                  for r in rows], width='stretch', hide_index=True)
+    st.markdown("""
+    <style>
+      .cf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:6px 0 20px}
+      .cf-card{border-radius:16px;padding:16px 18px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+      .cf-card .ico{font-size:18px;opacity:.92}
+      .cf-card .num{font-size:30px;font-weight:800;line-height:1.05;margin-top:8px}
+      .cf-card .lbl{font-size:13px;font-weight:700;opacity:.97;margin-top:2px}
+      .cf-card .sub{font-size:11px;opacity:.82;margin-top:1px}
+      .cf-panel{background:#141a2c;border:1px solid #243049;border-radius:16px;padding:14px 16px;margin-bottom:14px}
+      .cf-panel h4{margin:0 0 8px 0;font-size:14px;color:#cdd5e6}
+      .cf-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;
+              border-bottom:1px solid #232b42;font-size:13px;color:#cdd5e6}
+      .cf-row:last-child{border-bottom:none}
+      .pill{padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700}
+      .ok{background:#15331f;color:#56d98a}.no{background:#3a1d1d;color:#f87171}
+      .warn{background:#3a2c12;color:#f5b13d}
+    </style>""", unsafe_allow_html=True)
 
-    with st.expander("⚙️ Initialize / update reference data",
-                     expanded=counts["Controls loaded"] == 0):
+    st.markdown("### 🛡️ ComplyForge — Compliance Dashboard")
+
+    def card(grad, ico, num, lbl, sub):
+        return (f'<div class="cf-card" style="background:linear-gradient(135deg,{grad})">'
+                f'<div class="ico">{ico}</div><div class="num">{num:,}</div>'
+                f'<div class="lbl">{lbl}</div><div class="sub">{sub}</div></div>')
+
+    cards = [
+        card("#4f46e5,#7c3aed", "📚", controls, "Controls", "NIST 800-53 Rev 5"),
+        card("#7c3aed,#a855f7", "🗂️", frameworks, "Frameworks", "across 14 kinds"),
+        card("#2563eb,#06b6d4", "🎯", baselines_n, "Baselines", "Low / Mod / High"),
+        card("#0891b2,#22d3ee", "🔗", ccis, "CCIs", "DISA → 800-53"),
+        card("#db2777,#f472b6", "🛡️", stigs, "STIGs", f"{stig_rules:,} rules"),
+        card("#d97706,#f59e0b", "📝", review, "Awaiting review", "human gate"),
+    ]
+    st.markdown('<div class="cf-grid">' + "".join(cards) + "</div>", unsafe_allow_html=True)
+
+    left, right = st.columns([2, 1], gap="large")
+    with left:
+        cv = c.execute("SELECT catalog_version_id FROM catalog_versions "
+                       "WHERE framework_id='nist_800_53' AND is_current=1").fetchone()
+        st.markdown("#### NIST 800-53 controls by family")
+        if cv:
+            fam = c.execute("SELECT family, COUNT(*) n FROM controls WHERE catalog_version_id=? "
+                            "GROUP BY family ORDER BY n DESC", (cv[0],)).fetchall()
+            df = pd.DataFrame(fam, columns=["family", "controls"]).set_index("family")
+            st.bar_chart(df, color="#7c5cff", height=300)
+        else:
+            st.info("Load 800-53 below to populate.")
+        if stig_rules:
+            st.markdown("#### STIG rules by severity")
+            sev = c.execute("SELECT cat, COUNT(*) n FROM stig_rules GROUP BY cat "
+                            "ORDER BY cat").fetchall()
+            st.bar_chart(pd.DataFrame(sev, columns=["severity", "rules"]).set_index("severity"),
+                         color="#ec4899", height=220)
+
+    with right:
+        def row(label, ok, val):
+            pill = "ok" if ok else "no"
+            txt = val if val else ("loaded" if ok else "not loaded")
+            return f'<div class="cf-row"><span>{label}</span><span class="pill {pill}">{txt}</span></div>'
+        st.markdown('<div class="cf-panel"><h4>📡 Data sources</h4>'
+                    + row("NIST 800-53", controls > 0, f"{controls:,} controls")
+                    + row("800-53B baselines", baselines_n > 0, f"{baselines_n} loaded")
+                    + row("DISA CCIs", ccis > 0, f"{ccis:,}")
+                    + row("STIGs", stigs > 0, f"{stigs} loaded")
+                    + "</div>", unsafe_allow_html=True)
+        rqp = "no" if review else "ok"
+        st.markdown('<div class="cf-panel"><h4>✅ Authorization status</h4>'
+                    + f'<div class="cf-row"><span>Systems</span><span class="pill ok">{systems}</span></div>'
+                    + f'<div class="cf-row"><span>Awaiting review</span>'
+                      f'<span class="pill {rqp}">{review}</span></div>'
+                    + f'<div class="cf-row"><span>LLM provider</span>'
+                      f'<span class="pill {"ok" if prov.name!="fake" else "warn"}">{prov.name}</span></div>'
+                    + "</div>", unsafe_allow_html=True)
+
+    with st.expander("⚙️ Initialize / update reference data", expanded=controls == 0):
         from comply_forge import bootstrap as _bs
         st.caption("Downloads NIST 800-53, 800-53B baselines, and the DISA CCI list. "
                    "Run once on a fresh deployment. STIGs load via the STIG Library page.")

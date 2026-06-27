@@ -2,5 +2,9 @@
 maxUploadSize = 200   # MB — large enough for STIG zips / templates
 
 [theme]
-primaryColor = "#1f4e79"
-base = "light"
+base = "dark"
+primaryColor = "#7c5cff"
+backgroundColor = "#0b1020"
+secondaryBackgroundColor = "#161c2e"
+textColor = "#e6e9ef"
+font = "sans serif"
