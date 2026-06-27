@@ -335,6 +335,8 @@ _MIGRATIONS = [
     ("tenants", "accent_color", "TEXT DEFAULT '#22d3ee'"),
     ("tenants", "logo_blob", "BLOB"),
     ("tenants", "logo_mime", "TEXT"),
+    ("implemented_requirements", "monitor_frequency", "TEXT DEFAULT 'annual'"),
+    ("implemented_requirements", "next_review", "TEXT"),
 ]
 
 

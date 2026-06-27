@@ -86,7 +86,7 @@ PAGE = st.sidebar.radio("Navigate", [
     "Dashboard", "Categorize (CIA)", "Controls",
     "Draft Control Response", "Authorization Package",
     "FISCAM Test Plan", "Control Family Plans",
-    "STIG Library", "Review Queue",
+    "STIG Library", "Review Queue", "Continuous Monitoring",
 ] + (["Admin"] if USER["role"] == "admin" else []))
 st.sidebar.divider()
 st.sidebar.markdown(f"**LLM provider:** `{prov.name}`")
@@ -212,6 +212,13 @@ if PAGE == "Dashboard":
                     + row("800-53B baselines", baselines_n > 0, f"{baselines_n} loaded")
                     + row("DISA CCIs", ccis > 0, f"{ccis:,}")
                     + row("STIGs", stigs > 0, f"{stigs} loaded")
+                    + "</div>", unsafe_allow_html=True)
+        from comply_forge import conmon as _cm
+        cm = _cm.summary(conn, TENANT)
+        st.markdown('<div class="cf-panel"><h4>🔄 Continuous monitoring</h4>'
+                    + row("Reviews overdue", cm["overdue"] == 0, f"{cm['overdue']}")
+                    + row("Due soon (≤30d)", cm["due_soon"] == 0, f"{cm['due_soon']}")
+                    + row("Current", True, f"{cm['current']}")
                     + "</div>", unsafe_allow_html=True)
         # recent activity
         acts = c.execute(
@@ -805,6 +812,73 @@ elif PAGE == "Review Queue":
                 conn.commit()
                 audit("approve_control", (r[2] or "").upper(), f"reviewer={reviewer}")
                 st.rerun()
+
+
+# --------------------------------------------------------------------------- #
+# Continuous Monitoring (RMF Monitor step)
+# --------------------------------------------------------------------------- #
+elif PAGE == "Continuous Monitoring":
+    from comply_forge import conmon as _cm
+    st.title("Continuous Monitoring")
+    st.caption("RMF Monitor step — track each control's reassessment cadence and what's due.")
+    sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name",
+                            (TENANT,)).fetchall()
+    if not sys_rows:
+        st.info("Add a system and review some controls first.")
+    else:
+        sysmap = {n: i for i, n in sys_rows}
+        sn = st.selectbox("System", list(sysmap))
+        sid = sysmap[sn]
+        rows = _cm.items(conn, sid)
+        if not rows:
+            st.info("No reviewed controls yet — approve drafts in the Review Queue first.")
+        else:
+            counts = {"overdue": 0, "due_soon": 0, "current": 0, "unscheduled": 0}
+            for r in rows:
+                counts[r["status"]] = counts.get(r["status"], 0) + 1
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Overdue", counts["overdue"])
+            m2.metric("Due soon (≤30d)", counts["due_soon"])
+            m3.metric("Current", counts["current"])
+
+            _LBL = {"overdue": "🔴 overdue", "due_soon": "🟠 due soon",
+                    "current": "🟢 current", "unscheduled": "⚪ unscheduled"}
+            st.markdown("**Set reassessment cadence** (edit Frequency, then Save):")
+            table = [{"control": r["control_id"].upper(),
+                      "frequency": r["monitor_frequency"] or "annual",
+                      "last reviewed": (r["reviewed_at"] or "")[:10],
+                      "next due": (r["next_review"] or "")[:10],
+                      "status": _LBL.get(r["status"], r["status"]),
+                      "_ir": r["ir_id"]} for r in rows]
+            edited = st.data_editor(
+                table, hide_index=True, width="stretch", key=f"cm_{sid}",
+                column_config={
+                    "frequency": st.column_config.SelectboxColumn(
+                        "frequency", options=list(_cm.FREQUENCIES)),
+                    "last reviewed": st.column_config.TextColumn(disabled=True),
+                    "next due": st.column_config.TextColumn(disabled=True),
+                    "status": st.column_config.TextColumn(disabled=True),
+                    "_ir": None})
+            if st.button("Save cadences"):
+                cur = {r["ir_id"]: (r["monitor_frequency"] or "annual") for r in rows}
+                changed = 0
+                for row in edited:
+                    if row["frequency"] != cur.get(row["_ir"]):
+                        _cm.set_frequency(conn, row["_ir"], row["frequency"]); changed += 1
+                audit("set_conmon_cadence", sn, f"{changed} changed")
+                st.success(f"Updated {changed} cadence(s)."); st.rerun()
+
+            due = [r for r in rows if r["status"] in ("overdue", "due_soon")]
+            st.markdown(f"**Reassessments due ({len(due)})**")
+            if not due:
+                st.success("Nothing due — all monitored controls are current.")
+            for r in due:
+                with st.expander(f"{_LBL[r['status']]} · {r['control_id'].upper()} · due {(r['next_review'] or '')[:10]}"):
+                    who = st.text_input("Reassessed by", key=f"cmrev_{r['ir_id']}")
+                    if st.button("Mark reassessed", key=f"cmbtn_{r['ir_id']}") and who:
+                        _cm.mark_reassessed(conn, r["ir_id"], who)
+                        audit("reassess_control", r["control_id"].upper(), f"by {who}")
+                        st.rerun()
 
 
 # --------------------------------------------------------------------------- #
