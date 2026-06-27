@@ -36,6 +36,7 @@ def main() -> None:
     ap.add_argument("--system", default="AFSV-AFLIS")
     ap.add_argument("--enclave", default="AFSV-BAN")
     ap.add_argument("--baseline", default="Moderate")
+    ap.add_argument("--template", help="a .docx to clone styling from (fonts, headers, styles)")
     args = ap.parse_args()
 
     conn = connect()
@@ -56,7 +57,8 @@ def main() -> None:
     print(f"Generating {len(families)} family plan(s) with provider={provider.name}")
     for fam in families:
         try:
-            out = cfp.generate_family_plan(conn, family=fam, profile=profile, provider=provider)
+            out = cfp.generate_family_plan(conn, family=fam, profile=profile,
+                                           provider=provider, template_path=args.template)
             n = len(cfp._family_controls(conn, fam, args.catalog,
                     f"nist_800_53b@{args.baseline.lower()}"))
             print(f"  ✓ {fam.upper():3} {cfp.FAMILY_TITLES[fam]:42} {n:3} controls -> {out.name}")

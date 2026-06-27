@@ -338,6 +338,13 @@ elif PAGE == "Control Family Plans":
         baseline = c3.selectbox("Baseline", ["Low", "Moderate", "High"], index=1)
         fams = {f"{k.upper()} — {v}": k for k, v in control_family_plan.FAMILY_TITLES.items()}
         choice = st.multiselect("Families", list(fams), default=["CA — Assessment, Authorization, and Monitoring"])
+        tmpl_up = st.file_uploader("Optional: clone styling from your .docx (fonts, headers/footers, "
+                                   "CUI markings, heading styles)", type=["docx"])
+        tmpl_path = None
+        if tmpl_up is not None:
+            tmpl_path = Path(tempfile.mkdtemp()) / tmpl_up.name
+            tmpl_path.write_bytes(tmpl_up.getvalue())
+            st.caption(f"Styling will be cloned from {tmpl_up.name}")
         if st.button("Generate plan(s)", type="primary"):
             profile = control_family_plan.SystemProfile(
                 system_name=system, enclave=enclave, baseline=baseline, catalog_version_id=cv)
@@ -346,6 +353,7 @@ elif PAGE == "Control Family Plans":
                 try:
                     out = control_family_plan.generate_family_plan(
                         conn, family=fam, profile=profile, provider=prov,
+                        template_path=tmpl_path,
                         out_path=Path(tempfile.mkdtemp()) / f"{system}_{fam.upper()}_Plan.docx")
                     n = len(control_family_plan._family_controls(
                         conn, fam, cv, f"nist_800_53b@{baseline.lower()}"))

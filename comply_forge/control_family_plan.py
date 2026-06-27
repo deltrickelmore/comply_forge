@@ -135,10 +135,29 @@ def _draft_narrative(provider: LLMProvider, ctrl: dict, profile: SystemProfile) 
 # --------------------------------------------------------------------------- #
 # Word writer
 # --------------------------------------------------------------------------- #
+def _clear_body(doc) -> None:
+    """Remove existing body content but keep the final sectPr (headers/footers/margins)."""
+    from docx.oxml.ns import qn
+    body = doc.element.body
+    sectPr = body.find(qn("w:sectPr"))
+    for child in list(body):
+        if child is not sectPr:
+            body.remove(child)
+
+
+def _table_style(doc) -> str | None:
+    names = {s.name for s in doc.styles}
+    for cand in ("Table Grid", "Light Grid", "Table Grid Light", "Grid Table 1 Light"):
+        if cand in names:
+            return cand
+    return None
+
+
 def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = None,
                          baseline_id: str | None = None,
                          provider: LLMProvider | None = None,
-                         out_path: str | Path | None = None) -> Path:
+                         out_path: str | Path | None = None,
+                         template_path: str | Path | None = None) -> Path:
     import docx
     from docx.shared import Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -155,10 +174,21 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
         raise ValueError(f"no {family.upper()} controls in {profile.catalog_version_id} "
                          "-- load the 800-53 catalog first")
 
-    doc = docx.Document()
-    # default font
-    style = doc.styles["Normal"]
-    style.font.name = "Arial"; style.font.size = Pt(11)
+    if template_path:
+        # Clone the user's document: inherit its fonts, heading styles, headers/
+        # footers, theme, and page setup; regenerate the body content into it.
+        doc = docx.Document(str(template_path))
+        _clear_body(doc)
+    else:
+        doc = docx.Document()
+        style = doc.styles["Normal"]
+        style.font.name = "Arial"; style.font.size = Pt(11)
+    TS = _table_style(doc) or "Table Grid"
+    _STYLES = {s.name for s in doc.styles}
+
+    def P(text, style=None):
+        """add_paragraph that falls back to default when a style is absent in the template."""
+        return doc.add_paragraph(text, style=style if style in _STYLES else None)
 
     # ---- Title page ----
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -173,8 +203,8 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
 
     # Revision history
     doc.add_paragraph()
-    doc.add_paragraph("Revision History", style="Heading 3")
-    rev = doc.add_table(rows=1, cols=4); rev.style = "Table Grid"
+    P("Revision History", "Heading 3")
+    rev = doc.add_table(rows=1, cols=4); rev.style = TS
     for i, h in enumerate(("Date", "Version", "Author", "Changes Made / Section(s)")):
         rev.rows[0].cells[i].text = h
     rc = rev.add_row().cells
@@ -183,13 +213,13 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
     doc.add_page_break()
 
     # ---- 1. Introduction ----
-    doc.add_paragraph("Introduction", style="Heading 1")
+    P("Introduction", "Heading 1")
     doc.add_paragraph(
         f"This control family plan addresses the {fam_title} ({family.upper()}) controls "
         f"for {profile.description()} It documents how the system implements the selected "
         f"security controls and control enhancements.")
 
-    doc.add_paragraph("Purpose", style="Heading 2")
+    P("Purpose", "Heading 2")
     doc.add_paragraph(
         f"The purpose of this plan is to clearly address the {family.upper()} security "
         f"controls listed in the compliance matrix below, as selected for the "
@@ -197,7 +227,7 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
     # Compliance matrix
     cap = doc.add_paragraph(); cap.add_run(
         f"Table 1.1 — NIST SP 800-53 {family.upper()} Compliance Matrix").italic = True
-    matrix = doc.add_table(rows=1, cols=3); matrix.style = "Table Grid"
+    matrix = doc.add_table(rows=1, cols=3); matrix.style = TS
     for i, h in enumerate(("No.", "Control", profile.baseline)):
         matrix.rows[0].cells[i].text = h
     for n, c in enumerate(controls, 1):
@@ -206,51 +236,51 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
         cells[1].text = f"{c['control_id'].upper()} — {c['title']}"
         cells[2].text = "X"
 
-    doc.add_paragraph("Scope", style="Heading 2")
+    P("Scope", "Heading 2")
     doc.add_paragraph(
         f"The scope of this plan is limited to {profile.system_name} operating within the "
         f"{profile.enclave}, to include external system connections and third-party service "
         f"providers.")
 
-    doc.add_paragraph("Roles and Responsibilities", style="Heading 2")
+    P("Roles and Responsibilities", "Heading 2")
     cap = doc.add_paragraph(); cap.add_run(
         f"Table 1.2 — {profile.system_name} Roles and Responsibilities").italic = True
-    rt = doc.add_table(rows=1, cols=3); rt.style = "Table Grid"
+    rt = doc.add_table(rows=1, cols=3); rt.style = TS
     for i, h in enumerate(("Role", "Type", "Responsibilities")):
         rt.rows[0].cells[i].text = h
     for role, typ, resp in profile.roles:
         cells = rt.add_row().cells
         cells[0].text = role; cells[1].text = typ; cells[2].text = resp
 
-    doc.add_paragraph("Government Personnel", style="Heading 2")
+    P("Government Personnel", "Heading 2")
     cap = doc.add_paragraph(); cap.add_run("Table 1.3 — Personnel").italic = True
-    pt = doc.add_table(rows=1, cols=3); pt.style = "Table Grid"
+    pt = doc.add_table(rows=1, cols=3); pt.style = TS
     for i, h in enumerate(("Role", "Name", "Organization")):
         pt.rows[0].cells[i].text = h
     for p in profile.personnel:
         cells = pt.add_row().cells
         cells[0].text = p.role; cells[1].text = p.name; cells[2].text = p.org
 
-    doc.add_paragraph("Applicable Guidance and Directives", style="Heading 2")
+    P("Applicable Guidance and Directives", "Heading 2")
     for g in profile.guidance:
-        doc.add_paragraph(g, style="List Bullet")
+        P(g, "List Bullet")
 
-    doc.add_paragraph("Dissemination", style="Heading 2")
+    P("Dissemination", "Heading 2")
     doc.add_paragraph(
         f"This document must be made readily available to all personnel supporting "
         f"{profile.system_name} in a management or privileged function via eMASS.")
 
-    doc.add_paragraph("Review and Authorization", style="Heading 2")
+    P("Review and Authorization", "Heading 2")
     doc.add_paragraph(
         "This artifact is scheduled to be reviewed on an annual basis in accordance with "
         "the continuous monitoring plan, or whenever a significant change occurs.")
     doc.add_page_break()
 
     # ---- 2. Family body ----
-    doc.add_paragraph(fam_title.upper(), style="Heading 1")
+    P(fam_title.upper(), "Heading 1")
     structured_count = 0
     for c in controls:
-        doc.add_paragraph(c["title"].upper(), style="Heading 2")
+        P(c["title"].upper(), "Heading 2")
         narrative, structured = _draft_narrative(provider, c, profile)
         structured_count += int(structured)
         for para in narrative.split("\n"):
@@ -264,7 +294,7 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
             rows = _cci.controls_ccis(conn, c["control_id"])
         except Exception:
             rows = []
-        tbl = doc.add_table(rows=1, cols=4); tbl.style = "Table Grid"
+        tbl = doc.add_table(rows=1, cols=4); tbl.style = TS
         for i, h in enumerate(("AP Acronym", "CCI", "CCI Definition", "Response")):
             tbl.rows[0].cells[i].text = h
         if rows:
