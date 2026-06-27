@@ -333,6 +333,8 @@ _MIGRATIONS = [
     ("tenants", "logo", "TEXT DEFAULT '🛡️'"),
     ("tenants", "brand_color", "TEXT DEFAULT '#4f46e5'"),
     ("tenants", "accent_color", "TEXT DEFAULT '#22d3ee'"),
+    ("tenants", "logo_blob", "BLOB"),
+    ("tenants", "logo_mime", "TEXT"),
 ]
 
 

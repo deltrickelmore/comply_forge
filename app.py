@@ -76,7 +76,11 @@ def audit(action, target="", detail=""):
     _audit.log(conn, tenant_id=TENANT, username=USER["username"],
                action=action, target=target, detail=detail)
 
-st.sidebar.title(f"{BRAND['logo']} {BRAND['name']}")
+if BRAND.get("logo_blob"):
+    st.sidebar.image(BRAND["logo_blob"], width=120)
+    st.sidebar.markdown(f"### {BRAND['name']}")
+else:
+    st.sidebar.title(f"{BRAND['logo']} {BRAND['name']}")
 st.sidebar.caption(f"powered by ComplyForge · {USER['username']} ({USER['role']})")
 PAGE = st.sidebar.radio("Navigate", [
     "Dashboard", "Categorize (CIA)", "Controls",
@@ -148,9 +152,17 @@ if PAGE == "Dashboard":
       .act .t{color:#7f8aa3;margin-left:auto;font-size:11px}
     </style>""", unsafe_allow_html=True)
 
+    if BRAND.get("logo_blob"):
+        import base64 as _b64
+        _src = f'data:{BRAND.get("logo_mime") or "image/png"};base64,' + \
+               _b64.b64encode(BRAND["logo_blob"]).decode()
+        _logo = (f'<img src="{_src}" style="width:46px;height:46px;border-radius:12px;'
+                 f'object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.4)"/>')
+    else:
+        _logo = (f'<div class="cf-logo" style="background:linear-gradient(135deg,'
+                 f'{BRAND["brand_color"]},{BRAND["accent_color"]})">{BRAND["logo"]}</div>')
     st.markdown(
-        f'<div class="cf-head"><div class="cf-logo" style="background:linear-gradient(135deg,'
-        f'{BRAND["brand_color"]},{BRAND["accent_color"]})">{BRAND["logo"]}</div>'
+        f'<div class="cf-head">{_logo}'
         f'<div><div class="cf-title">{BRAND["name"]}</div>'
         f'<div class="cf-tag">RMF authorization & continuous-monitoring · '
         f'powered by ComplyForge · DRAFT outputs require human review</div></div></div>',
@@ -758,6 +770,19 @@ elif PAGE == "Admin":
                                   brand_color=bcol, accent_color=bacc)
             audit("update_branding", bname)
             st.success("Branding saved."); st.rerun()
+
+    lc1, lc2 = st.columns([2, 1])
+    logo_up = lc1.file_uploader("Logo image (PNG/JPG) — overrides the emoji",
+                                type=["png", "jpg", "jpeg"])
+    if BRAND.get("logo_blob"):
+        lc2.image(BRAND["logo_blob"], width=80)
+    bcol1, bcol2 = st.columns(2)
+    if logo_up and bcol1.button("Set logo image", type="primary"):
+        mime = "image/png" if logo_up.name.lower().endswith("png") else "image/jpeg"
+        _auth.set_logo_image(conn, TENANT, logo_up.getvalue(), mime)
+        audit("set_logo_image", logo_up.name); st.success("Logo image set."); st.rerun()
+    if BRAND.get("logo_blob") and bcol2.button("Remove logo image"):
+        _auth.set_logo_image(conn, TENANT, None); audit("remove_logo_image"); st.rerun()
 
     st.subheader("Organizations (tenants)")
     tl = _auth.list_tenants(conn)

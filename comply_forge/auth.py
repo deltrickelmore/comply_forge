@@ -79,13 +79,20 @@ _BRAND_DEFAULTS = {"logo": "🛡️", "brand_color": "#4f46e5", "accent_color": 
 
 def get_tenant(conn, tenant_id: str) -> dict:
     """Tenant record incl. branding (with defaults if columns are null)."""
-    r = conn.execute("SELECT tenant_id, name, logo, brand_color, accent_color "
-                     "FROM tenants WHERE tenant_id=?", (tenant_id,)).fetchone()
+    r = conn.execute("SELECT tenant_id, name, logo, brand_color, accent_color, "
+                     "logo_blob, logo_mime FROM tenants WHERE tenant_id=?",
+                     (tenant_id,)).fetchone()
     d = dict(r) if r else {"tenant_id": tenant_id, "name": "Organization"}
     for k, v in _BRAND_DEFAULTS.items():
         if not d.get(k):
             d[k] = v
     return d
+
+
+def set_logo_image(conn, tenant_id: str, data: bytes | None, mime: str = "image/png") -> None:
+    conn.execute("UPDATE tenants SET logo_blob=?, logo_mime=? WHERE tenant_id=?",
+                 (data, mime if data else None, tenant_id))
+    conn.commit()
 
 
 def update_branding(conn, tenant_id: str, *, name: str | None = None, logo: str | None = None,
