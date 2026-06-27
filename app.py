@@ -44,7 +44,7 @@ def _read_bytes(path) -> bytes:
 # --------------------------------------------------------------------------- #
 conn = db()
 prov = get_provider()
-from comply_forge import auth as _auth
+from comply_forge import auth as _auth, audit as _audit
 _auth.ensure_seed(conn)
 
 # --- login gate (multi-tenant) ---
@@ -59,6 +59,8 @@ if "user" not in st.session_state:
             _usr = _auth.authenticate(conn, _u.strip(), _p)
             if _usr:
                 st.session_state["user"] = _usr
+                _audit.log(conn, tenant_id=_usr["tenant_id"], username=_usr["username"],
+                           action="login")
                 st.rerun()
             else:
                 st.error("Invalid username or password.")
@@ -67,6 +69,11 @@ if "user" not in st.session_state:
 
 USER = st.session_state["user"]
 TENANT = USER["tenant_id"]
+
+
+def audit(action, target="", detail=""):
+    _audit.log(conn, tenant_id=TENANT, username=USER["username"],
+               action=action, target=target, detail=detail)
 
 st.sidebar.title("🛡️ ComplyForge")
 st.sidebar.caption(f"{USER['tenant_name']} · {USER['username']} ({USER['role']})")
@@ -83,6 +90,7 @@ if prov.name == "fake":
                     "(dev) or `COMPLYFORGE_LLM_PROVIDER=bedrock` (CUI).")
 st.sidebar.caption("All drafts require human review — nothing is auto-attested.")
 if st.sidebar.button("Sign out"):
+    audit("logout")
     del st.session_state["user"]
     st.rerun()
 
@@ -295,6 +303,7 @@ elif PAGE == "Categorize (CIA)":
         try:
             sel = categorize.categorize_and_select(
                 conn, confidentiality=conf, integrity=integ, availability=avail, model=model)
+            audit("categorize", f"{model}", f"C={conf} I={integ} A={avail} -> {sel['control_count']}")
             st.success(f"{sel['control_count']} controls selected "
                        f"({sel.get('overall_impact', model)}). {sel['note']}")
             ids = sel["control_ids"]
@@ -364,6 +373,7 @@ elif PAGE == "Draft Control Response":
                     ans = control_responder.draft_response(
                         conn, system_id=sysmap[sysname], catalog_version_id=cv,
                         control_id=control_id, provider=prov)
+                    audit("draft_control", control_id.upper(), sysname)
                     st.success(f"Drafted {control_id.upper()} — needs_review "
                                f"(provider={ans['provenance']['llm_provider']})")
                     st.text_area("Draft statement", ans["statement"], height=240)
@@ -405,6 +415,7 @@ elif PAGE == "Authorization Package":
         a, b = st.columns(2)
         if a.button("Generate OSCAL SSP", key="ssp_oscal"):
             doc = _ssp.build_oscal_ssp(conn, system_id=sid, catalog_version_id=cv)
+            audit("generate_ssp", sysname)
             ok, msg = _ssp.validate_oscal(doc)
             st.caption(msg)
             import json as _json
@@ -425,6 +436,7 @@ elif PAGE == "Authorization Package":
         if f1.button("Generate OSCAL SAR", key="sar_oscal"):
             import json as _json
             doc = _sar.build_oscal_sar(conn, system_id=sid, catalog_version_id=cv)
+            audit("generate_sar", sysname)
             f1.download_button("⬇ SAR (OSCAL JSON)", _json.dumps(doc, indent=2),
                                file_name=f"{sysname}_SAR.json", mime="application/json", key="dl_sar_j")
         if f2.button("Generate Word SAR", key="sar_word"):
@@ -439,6 +451,7 @@ elif PAGE == "Authorization Package":
         d, e = st.columns(2)
         if d.button("Generate OSCAL POA&M", key="poam_oscal"):
             doc = _poam.build_oscal_poam(conn, system_id=sid, catalog_version_id=cv)
+            audit("generate_poam", sysname)
             import json as _json
             d.download_button("⬇ POA&M (OSCAL JSON)", _json.dumps(doc, indent=2),
                               file_name=f"{sysname}_POAM.json", mime="application/json", key="dl_poam_j")
@@ -467,6 +480,7 @@ elif PAGE == "FISCAM Test Plan":
                 conn, control_id=cid, control_title=title, control_text=text, provider=prov)
             out = Path(tempfile.mkdtemp()) / f"Enterprise_{cid.replace('.', '_')}.xlsx"
             fiscam_test_plan.write_workbook(plan, out)
+            audit("generate_test_plan", cid)
             st.success(f"Generated ({plan.provenance['field_source']}, needs_review).")
             st.download_button("Download .xlsx", _read_bytes(out),
                                file_name=out.name,
@@ -525,6 +539,7 @@ elif PAGE == "Control Family Plans":
                         conn, family=fam, profile=profile, provider=prov,
                         template_path=tmpl_path,
                         out_path=Path(tempfile.mkdtemp()) / f"{system}_{fam.upper()}_Plan.docx")
+                    audit("generate_family_plan", fam.upper(), system)
                     n = len(control_family_plan._family_controls(
                         conn, fam, cv, f"nist_800_53b@{baseline.lower()}"))
                     st.download_button(f"⬇ {fam.upper()} plan ({n} controls)",
@@ -571,6 +586,7 @@ elif PAGE == "STIG Library":
                 else:
                     st.stop()
                 res = _stig.load_stig_xccdf(conn, xml, source=src)
+                audit("ingest_stig", res["stig_id"], f"{res['rules']} rules")
                 st.success(f"Loaded {res['title']} ({res['version']}): {res['rules']} rules, "
                            f"{res['controls_mapped']} 800-53 controls mapped.")
             except Exception as e:
@@ -619,6 +635,7 @@ elif PAGE == "STIG Library":
                 system_id = sysmap[sn]
                 if st.button("Apply STIG to system", type="primary"):
                     _stig.assign(conn, system_id, sid)
+                    audit("apply_stig", sid, sn)
                     st.success(f"Applied {label} to {sn}. Covers {len(cov)} 800-53 controls.")
                 st.caption("Currently applied: " +
                            (", ".join(_stig.assigned_stigs(conn, system_id)) or "none"))
@@ -671,7 +688,9 @@ elif PAGE == "Review Queue":
                 conn.execute("UPDATE implemented_requirements SET needs_review=0, "
                              "reviewed_by=?, reviewed_at=?, status='implemented' WHERE ir_id=?",
                              (reviewer, _now(), r[0]))
-                conn.commit(); st.rerun()
+                conn.commit()
+                audit("approve_control", (r[2] or "").upper(), f"reviewer={reviewer}")
+                st.rerun()
 
 
 # --------------------------------------------------------------------------- #
@@ -694,7 +713,8 @@ elif PAGE == "Admin":
     with st.form("new_tenant"):
         tn = st.text_input("New organization name")
         if st.form_submit_button("Create organization") and tn.strip():
-            _auth.create_tenant(conn, tn.strip()); st.success(f"Created {tn}"); st.rerun()
+            _auth.create_tenant(conn, tn.strip()); audit("create_tenant", tn.strip())
+            st.success(f"Created {tn}"); st.rerun()
 
     st.subheader("Users")
     urows = conn.execute("SELECT u.username, t.name tenant, u.role FROM users u "
@@ -710,6 +730,7 @@ elif PAGE == "Admin":
         if st.form_submit_button("Create user") and nu.strip() and npw and torg:
             try:
                 _auth.create_user(conn, nu.strip(), npw, tmap[torg], nrole)
+                audit("create_user", nu.strip(), f"org={torg} role={nrole}")
                 st.success(f"Created user {nu}"); st.rerun()
             except Exception as e:
                 st.error(f"Could not create user: {e}")
@@ -722,6 +743,18 @@ elif PAGE == "Admin":
             if p1 and p1 == p2:
                 conn.execute("UPDATE users SET password_hash=? WHERE username=?",
                              (_auth.hash_password(p1), USER["username"]))
-                conn.commit(); st.success("Password updated.")
+                conn.commit(); audit("change_password", USER["username"])
+                st.success("Password updated.")
             else:
                 st.error("Passwords don't match.")
+
+    st.subheader("Audit log")
+    log_rows = _audit.recent(conn, TENANT, limit=200)
+    if log_rows:
+        st.dataframe([{"timestamp": r["ts"][:19].replace("T", " "), "user": r["username"],
+                       "action": r["action"], "target": r["target"], "detail": r["detail"]}
+                      for r in log_rows], width="stretch", hide_index=True)
+        st.download_button("⬇ Export audit log (.csv)", _audit.export_csv(conn, TENANT),
+                           file_name=f"{USER['tenant_name']}_audit_log.csv", mime="text/csv")
+    else:
+        st.caption("No audit entries yet.")

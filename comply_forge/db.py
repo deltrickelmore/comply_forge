@@ -51,6 +51,21 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- ---------------------------------------------------------------------------
+-- Audit log: who did what, when. Tenant-scoped. Core to a GRC tool — records
+-- logins, drafts, approvals, artifact generation, STIG actions, admin changes.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS audit_log (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts         TEXT NOT NULL,
+    tenant_id  TEXT,
+    username   TEXT,
+    action     TEXT NOT NULL,
+    target     TEXT,
+    detail     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, ts);
+
+-- ---------------------------------------------------------------------------
 -- Framework registry. One row per framework family (not per revision).
 -- kind drives how the framework behaves:
 --   'control_catalog' -> has selectable controls (800-53, 800-171, CIS, FISCAM)
