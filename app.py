@@ -83,7 +83,7 @@ else:
     st.sidebar.title(f"{BRAND['logo']} {BRAND['name']}")
 st.sidebar.caption(f"powered by ComplyForge · {USER['username']} ({USER['role']})")
 PAGE = st.sidebar.radio("Navigate", [
-    "Dashboard", "Categorize (CIA)", "Controls",
+    "Dashboard", "Categorize (CIA)", "Controls", "Crosswalk & Coverage",
     "Draft Control Response", "Authorization Package",
     "FISCAM Test Plan", "Control Family Plans",
     "STIG Library", "Review Queue", "Continuous Monitoring",
@@ -394,6 +394,95 @@ elif PAGE == "Controls":
         st.caption(f"{len(rows)} shown")
         st.dataframe([{"control": r[0].upper(), "title": r[1]} for r in rows],
                      width='stretch', hide_index=True)
+
+
+# --------------------------------------------------------------------------- #
+# Crosswalk & Coverage
+# --------------------------------------------------------------------------- #
+elif PAGE == "Crosswalk & Coverage":
+    import pandas as pd
+    from comply_forge import crosswalk as _xw, cci as _cci, stig as _stig
+    from comply_forge import adapters as _adapters
+    st.title("Crosswalk & Coverage")
+    st.caption("For a control: its CCIs, the STIG rules that implement it, and how it "
+               "maps to other frameworks. Answer once, satisfy many.")
+    cv = _current_catalog()
+    if not cv:
+        st.warning("Load 800-53 first.")
+    else:
+        cid = st.text_input("Control ID", value="cm-6").strip().lower()
+        ctrl = conn.execute("SELECT title, statement FROM controls WHERE catalog_version_id=? "
+                            "AND control_id=?", (cv, cid)).fetchone()
+        if not ctrl:
+            st.error(f"{cid.upper()} not found in {cv}.")
+        else:
+            st.markdown(f"### {cid.upper()} — {ctrl['title']}")
+            ccis = _cci.controls_ccis(conn, cid)
+            rules = _stig.rules_for_control(conn, cid)
+            xw = _xw.neighbors(conn, "nist_800_53", cid)
+            m1, m2, m3 = st.columns(3)
+            m1.metric("CCIs", len(ccis))
+            m2.metric("STIG rules implementing", len(rules))
+            m3.metric("Cross-framework mappings", len(xw))
+
+            t_xw, t_cci, t_stig = st.tabs(["🔗 Cross-framework", "🧩 CCIs", "🛡️ STIG rules"])
+            with t_xw:
+                if xw:
+                    st.dataframe(pd.DataFrame(
+                        [{"framework": x["framework"], "control": x["control_id"].upper(),
+                          "relation": x["relation"], "authority": x["authority"]} for x in xw]),
+                        width="stretch", hide_index=True)
+                else:
+                    st.caption("No cross-framework mappings loaded for this control.")
+                with st.expander("Load crosswalk mappings (CSV)"):
+                    st.caption("Columns: src_framework, src_control, dst_framework, dst_control, "
+                               "relation (equivalent/subset/superset/intersects/related), authority, note")
+                    mf = st.file_uploader("Mappings (.csv)", type=["csv"], key="xw_csv")
+                    if mf and st.button("Load mappings"):
+                        import tempfile as _tf
+                        p = Path(_tf.mkdtemp()) / mf.name; p.write_bytes(mf.getvalue())
+                        nmap = _adapters.load_mappings_csv(conn, p)
+                        audit("load_crosswalk", mf.name, f"{nmap} mappings")
+                        st.success(f"Loaded {nmap} mappings."); st.rerun()
+            with t_cci:
+                if ccis:
+                    st.dataframe(pd.DataFrame(
+                        [{"AP": r["ap_acronym"], "CCI": r["cci"],
+                          "definition": r["definition"][:120]} for r in ccis]),
+                        width="stretch", hide_index=True)
+                else:
+                    st.caption("No CCIs (load DISA CCIs).")
+            with t_stig:
+                if rules:
+                    st.dataframe(pd.DataFrame(
+                        [{"CAT": r["cat"], "STIG ID": r["stig_ref"], "rule": r["title"][:60],
+                          "STIG": r["stig"][:30]} for r in rules]),
+                        width="stretch", hide_index=True)
+                else:
+                    st.caption("No STIG rules (load a STIG).")
+
+            st.divider()
+            st.markdown("**Answer once, satisfy many** — prefill mapped controls in other "
+                        "frameworks from a reviewed response for this control.")
+            sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name",
+                                    (TENANT,)).fetchall()
+            if sys_rows and xw:
+                smap = {n: i for i, n in sys_rows}
+                sn = st.selectbox("System", list(smap), key="xw_sys")
+                src = conn.execute("SELECT ir_id FROM implemented_requirements WHERE system_id=? "
+                                   "AND control_id=? AND reviewed_by IS NOT NULL ORDER BY updated_at DESC LIMIT 1",
+                                   (smap[sn], cid)).fetchone()
+                if not src:
+                    st.caption(f"No reviewed response for {cid.upper()} on {sn} yet "
+                               "(draft + approve it first).")
+                elif st.button("Prefill mapped controls", type="primary"):
+                    created = _xw.prefill_from_answer(conn, src[0])
+                    audit("crosswalk_prefill", cid.upper(), f"{len(created)} created")
+                    st.success(f"Created {len(created)} prefilled draft(s) in mapped frameworks "
+                               "(each needs_review).") if created else st.info(
+                               "No prefills created — target framework catalogs may not be loaded.")
+            elif not xw:
+                st.caption("Load cross-framework mappings above to enable prefill.")
 
 
 # --------------------------------------------------------------------------- #

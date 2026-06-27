@@ -165,6 +165,19 @@ def rule_controls(conn, stig_id: str, rule_id: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+def rules_for_control(conn, control_id: str) -> list[dict]:
+    """STIG rules (across all loaded STIGs) that implement a given 800-53 control."""
+    rows = conn.execute(
+        """SELECT DISTINCT s.title AS stig, r.stig_id, r.stig_ref, r.cat, r.title
+             FROM cci_control_map m
+             JOIN stig_rule_cci rc ON rc.cci=m.cci_id
+             JOIN stig_rules r ON r.stig_id=rc.stig_id AND r.rule_id=rc.rule_id
+             JOIN stigs s ON s.stig_id=r.stig_id
+            WHERE m.control_id=? ORDER BY r.cat, r.stig_ref""",
+        (control_id.lower(),)).fetchall()
+    return [dict(r) for r in rows]
+
+
 def coverage(conn, stig_id: str) -> list[str]:
     """Distinct 800-53 controls covered by a STIG (via CCIs)."""
     rows = conn.execute(
