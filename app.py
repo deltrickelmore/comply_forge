@@ -315,6 +315,32 @@ elif PAGE == "Categorize (CIA)":
             st.info("Load baselines: `python3 scripts/fetch_baselines.py` "
                     "(per_cia also needs CNSSI 1253 data).")
 
+    if model == "per_cia":
+        st.caption("`per_cia` uses 800-53B-derived per-objective sets (approximation) "
+                   "unless authoritative CNSSI 1253 data is loaded below.")
+    with st.expander("Load authoritative CNSSI 1253 per-CIA baselines"):
+        from comply_forge import baselines as _bl
+        st.caption("Upload a table with columns **dimension** (C/I/A), **impact** "
+                   "(low/moderate/high), **control_id** — e.g. exported from the CNSS "
+                   "1253 baseline workbook. This overrides the approximation.")
+        cf = st.file_uploader("CNSSI 1253 baselines (.csv or .xlsx)", type=["csv", "xlsx"])
+        if cf and st.button("Load CNSSI 1253 data", type="primary"):
+            try:
+                if cf.name.lower().endswith(".xlsx"):
+                    import openpyxl, io as _io
+                    ws = openpyxl.load_workbook(_io.BytesIO(cf.getvalue()), data_only=True).worksheets[0]
+                    it = ws.iter_rows(values_only=True)
+                    hdr = [str(h).strip().lower() if h else "" for h in next(it)]
+                    rows = [dict(zip(hdr, r)) for r in it]
+                else:
+                    import csv as _csv, io as _io
+                    rows = list(_csv.DictReader(_io.StringIO(cf.getvalue().decode())))
+                nrows = _bl.load_cnssi1253_rows(conn, rows)
+                audit("load_cnssi1253", cf.name, f"{nrows} rows")
+                st.success(f"Loaded {nrows} authoritative CNSSI 1253 rows — per_cia now uses them.")
+            except Exception as e:
+                st.error(f"Could not load: {e}")
+
 
 # --------------------------------------------------------------------------- #
 # Controls browser
