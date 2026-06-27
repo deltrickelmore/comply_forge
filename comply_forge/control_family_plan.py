@@ -66,15 +66,17 @@ class Personnel:
 
 @dataclass
 class SystemProfile:
-    system_name: str = "AFSV-AFLIS"
-    system_long_name: str = "Air Force Library Information System"
-    enclave: str = "AFSV-BAN"
+    system_name: str = ""           # the entity / information system being documented
+    system_long_name: str = ""
+    enclave: str = ""               # enclave / authorization boundary (optional)
+    agency: str = ""                # agency or company the document is being completed for
     baseline: str = "Moderate"
     catalog_version_id: str = "nist_800_53@rev5"
     guidance: list[str] = field(default_factory=lambda: [
         "NIST SP 800-53 Security and Privacy Controls for Information Systems and Organizations",
         "NIST SP 800-37 Risk Management Framework",
-        "DoDI 8510.01 Risk Management Framework (RMF) for DoD IT",
+        "NIST SP 800-53A Assessing Security and Privacy Controls",
+        "FIPS 199 / FIPS 200 Security Categorization and Minimum Requirements",
     ])
     roles: list[tuple[str, str, str]] = field(default_factory=lambda: [
         ("Authorizing Official (AO)", "Government", "Accepts risk and grants authorization to operate."),
@@ -89,9 +91,15 @@ class SystemProfile:
         Personnel("Information System Security Officer (ISSO)", "", ""),
     ])
 
+    def display_name(self) -> str:
+        return self.system_long_name or self.system_name or "[Entity / System Name]"
+
+    def short_name(self) -> str:
+        return self.system_name or self.system_long_name or "[Entity / System Name]"
+
     def description(self) -> str:
-        return (f"{self.system_name} ({self.system_long_name}) operating within the "
-                f"{self.enclave} enclave at the {self.baseline} impact baseline.")
+        enc = f" operating within the {self.enclave}" if self.enclave else ""
+        return f"{self.display_name()}{enc} at the {self.baseline} impact baseline."
 
 
 def _family_controls(conn, family: str, catalog_version_id: str,
@@ -126,9 +134,8 @@ def _draft_narrative(provider: LLMProvider, ctrl: dict, profile: SystemProfile) 
     if not structured:
         # deterministic fallback: ground in the control's own text
         text = (f"{ctrl['statement']}\n\n"
-                f"{profile.system_name} implements this control within the {profile.enclave} "
-                f"enclave. [Draft narrative — review and tailor to the system's actual "
-                f"implementation. {ctrl['guidance'][:300]}]")
+                f"{profile.short_name()} implements this control. [Draft narrative — review "
+                f"and tailor to the system's actual implementation. {ctrl['guidance'][:300]}]")
     return text, structured
 
 
@@ -191,13 +198,19 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
         return doc.add_paragraph(text, style=style if style in _STYLES else None)
 
     # ---- Title page ----
+    title_txt = profile.display_name()
+    if profile.system_long_name and profile.system_name:
+        title_txt = f"{profile.system_long_name} ({profile.system_name})"
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = t.add_run(f"{profile.system_long_name} ({profile.system_name})")
+    run = t.add_run(title_txt)
     run.bold = True; run.font.size = Pt(18)
     sub = doc.add_paragraph(); sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r2 = sub.add_run(f"Security Assessment and Authorization Plan\n"
                      f"{fam_title} ({family.upper()}) Control Family")
     r2.bold = True; r2.font.size = Pt(14)
+    if profile.agency:
+        a = doc.add_paragraph(); a.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        a.add_run(f"Prepared for: {profile.agency}").bold = True
     meta = doc.add_paragraph(); meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     meta.add_run(f"Version 1.0 (DRAFT — needs review)\n{_dt.date.today():%d %b %Y}")
 
@@ -237,14 +250,14 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
         cells[2].text = "X"
 
     P("Scope", "Heading 2")
+    enc = f" operating within the {profile.enclave}" if profile.enclave else ""
     doc.add_paragraph(
-        f"The scope of this plan is limited to {profile.system_name} operating within the "
-        f"{profile.enclave}, to include external system connections and third-party service "
-        f"providers.")
+        f"The scope of this plan is limited to {profile.short_name()}{enc}, to include "
+        f"external system connections and third-party service providers.")
 
     P("Roles and Responsibilities", "Heading 2")
     cap = doc.add_paragraph(); cap.add_run(
-        f"Table 1.2 — {profile.system_name} Roles and Responsibilities").italic = True
+        f"Table 1.2 — {profile.short_name()} Roles and Responsibilities").italic = True
     rt = doc.add_table(rows=1, cols=3); rt.style = TS
     for i, h in enumerate(("Role", "Type", "Responsibilities")):
         rt.rows[0].cells[i].text = h
@@ -268,7 +281,7 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
     P("Dissemination", "Heading 2")
     doc.add_paragraph(
         f"This document must be made readily available to all personnel supporting "
-        f"{profile.system_name} in a management or privileged function via eMASS.")
+        f"{profile.short_name()} in a management or privileged function via eMASS.")
 
     P("Review and Authorization", "Heading 2")
     doc.add_paragraph(

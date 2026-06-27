@@ -566,10 +566,17 @@ elif PAGE == "Control Family Plans":
     if not cv:
         st.warning("Load 800-53 first.")
     else:
-        c1, c2, c3 = st.columns(3)
-        system = c1.text_input("System name", value="AFSV-AFLIS")
-        enclave = c2.text_input("Enclave", value="AFSV-BAN")
-        baseline = c3.selectbox("Baseline", ["Low", "Moderate", "High"], index=1)
+        c1, c2 = st.columns(2)
+        system = c1.text_input("Entity / system name", value="",
+                               placeholder="e.g. the information system being documented")
+        agency = c2.text_input("Agency / company (document is for)", value="",
+                               placeholder="e.g. the client agency or organization")
+        c3, c4 = st.columns(2)
+        enclave = c3.text_input("Enclave / authorization boundary (optional)", value="")
+        baseline = c4.selectbox("Baseline", ["Low", "Moderate", "High"], index=1)
+        if not system:
+            st.caption("Tip: enter the entity/system name — the document will otherwise show "
+                       "a [Entity / System Name] placeholder.")
         fams = {f"{k.upper()} — {v}": k for k, v in control_family_plan.FAMILY_TITLES.items()}
         choice = st.multiselect("Families", list(fams), default=["CA — Assessment, Authorization, and Monitoring"])
         tmpl_up = st.file_uploader("Optional: clone styling from your .docx (fonts, headers/footers, "
@@ -581,14 +588,16 @@ elif PAGE == "Control Family Plans":
             st.caption(f"Styling will be cloned from {tmpl_up.name}")
         if st.button("Generate plan(s)", type="primary"):
             profile = control_family_plan.SystemProfile(
-                system_name=system, enclave=enclave, baseline=baseline, catalog_version_id=cv)
+                system_name=system, enclave=enclave, agency=agency,
+                baseline=baseline, catalog_version_id=cv)
             for label in choice:
                 fam = fams[label]
                 try:
                     out = control_family_plan.generate_family_plan(
                         conn, family=fam, profile=profile, provider=prov,
                         template_path=tmpl_path,
-                        out_path=Path(tempfile.mkdtemp()) / f"{system}_{fam.upper()}_Plan.docx")
+                        out_path=Path(tempfile.mkdtemp()) /
+                        f"{(system or agency or 'Entity').replace(' ', '_')}_{fam.upper()}_Plan.docx")
                     audit("generate_family_plan", fam.upper(), system)
                     n = len(control_family_plan._family_controls(
                         conn, fam, cv, f"nist_800_53b@{baseline.lower()}"))
