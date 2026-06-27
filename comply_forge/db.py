@@ -330,6 +330,9 @@ _MIGRATIONS = [
     ("frameworks", "ingest_method", "TEXT"),
     ("frameworks", "anchor", "INTEGER NOT NULL DEFAULT 0"),
     ("systems", "tenant_id", "TEXT"),
+    ("tenants", "logo", "TEXT DEFAULT '🛡️'"),
+    ("tenants", "brand_color", "TEXT DEFAULT '#4f46e5'"),
+    ("tenants", "accent_color", "TEXT DEFAULT '#22d3ee'"),
 ]
 
 

@@ -157,7 +157,8 @@ def validate_oscal(ssp: dict) -> tuple[bool, str]:
 
 
 def write_word_ssp(conn, *, system_id: str, catalog_version_id: str,
-                   path: str | Path, baseline_impact: str = "moderate") -> Path:
+                   path: str | Path, baseline_impact: str = "moderate",
+                   org_name: str = "") -> Path:
     import docx
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -174,6 +175,9 @@ def write_word_ssp(conn, *, system_id: str, catalog_version_id: str,
     sub = doc.add_paragraph(); sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub.add_run(f"Impact Level: {impact.title()}   ·   Version 0.1 (DRAFT — needs review)\n"
                 f"{_dt.date.today():%d %b %Y}")
+    if org_name:
+        o = doc.add_paragraph(); o.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        o.add_run(f"Prepared for: {org_name}").italic = True
     doc.add_page_break()
 
     doc.add_paragraph("1. System Characteristics", style="Heading 1")

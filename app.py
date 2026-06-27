@@ -69,14 +69,15 @@ if "user" not in st.session_state:
 
 USER = st.session_state["user"]
 TENANT = USER["tenant_id"]
+BRAND = _auth.get_tenant(conn, TENANT)
 
 
 def audit(action, target="", detail=""):
     _audit.log(conn, tenant_id=TENANT, username=USER["username"],
                action=action, target=target, detail=detail)
 
-st.sidebar.title("🛡️ ComplyForge")
-st.sidebar.caption(f"{USER['tenant_name']} · {USER['username']} ({USER['role']})")
+st.sidebar.title(f"{BRAND['logo']} {BRAND['name']}")
+st.sidebar.caption(f"powered by ComplyForge · {USER['username']} ({USER['role']})")
 PAGE = st.sidebar.radio("Navigate", [
     "Dashboard", "Categorize (CIA)", "Controls",
     "Draft Control Response", "Authorization Package",
@@ -147,10 +148,13 @@ if PAGE == "Dashboard":
       .act .t{color:#7f8aa3;margin-left:auto;font-size:11px}
     </style>""", unsafe_allow_html=True)
 
-    st.markdown('<div class="cf-head"><div class="cf-logo">🛡️</div>'
-                '<div><div class="cf-title">ComplyForge</div>'
-                '<div class="cf-tag">RMF authorization & continuous-monitoring workbench · '
-                'DRAFT outputs require human review</div></div></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="cf-head"><div class="cf-logo" style="background:linear-gradient(135deg,'
+        f'{BRAND["brand_color"]},{BRAND["accent_color"]})">{BRAND["logo"]}</div>'
+        f'<div><div class="cf-title">{BRAND["name"]}</div>'
+        f'<div class="cf-tag">RMF authorization & continuous-monitoring · '
+        f'powered by ComplyForge · DRAFT outputs require human review</div></div></div>',
+        unsafe_allow_html=True)
 
     def card(grad, ico, num, lbl, sub):
         return (f'<div class="cf-card" style="background:linear-gradient(135deg,{grad})">'
@@ -454,7 +458,8 @@ elif PAGE == "Authorization Package":
                               file_name=f"{sysname}_SSP.json", mime="application/json", key="dl_ssp_j")
         if b.button("Generate Word SSP", key="ssp_word"):
             out = _ssp.write_word_ssp(conn, system_id=sid, catalog_version_id=cv,
-                                      path=Path(tempfile.mkdtemp()) / f"{sysname}_SSP.docx")
+                                      path=Path(tempfile.mkdtemp()) / f"{sysname}_SSP.docx",
+                                      org_name=BRAND["name"])
             b.download_button("⬇ SSP (.docx)", _read_bytes(out), file_name=out.name, key="dl_ssp_w",
                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -472,7 +477,8 @@ elif PAGE == "Authorization Package":
                                file_name=f"{sysname}_SAR.json", mime="application/json", key="dl_sar_j")
         if f2.button("Generate Word SAR", key="sar_word"):
             out = _sar.write_word_sar(conn, system_id=sid, catalog_version_id=cv,
-                                      path=Path(tempfile.mkdtemp()) / f"{sysname}_SAR.docx")
+                                      path=Path(tempfile.mkdtemp()) / f"{sysname}_SAR.docx",
+                                      org_name=BRAND["name"])
             f2.download_button("⬇ SAR (.docx)", _read_bytes(out), file_name=out.name, key="dl_sar_w",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -488,7 +494,8 @@ elif PAGE == "Authorization Package":
                               file_name=f"{sysname}_POAM.json", mime="application/json", key="dl_poam_j")
         if e.button("Generate Word POA&M", key="poam_word"):
             out = _poam.write_word_poam(conn, system_id=sid, catalog_version_id=cv,
-                                        path=Path(tempfile.mkdtemp()) / f"{sysname}_POAM.docx")
+                                        path=Path(tempfile.mkdtemp()) / f"{sysname}_POAM.docx",
+                                        org_name=BRAND["name"])
             e.download_button("⬇ POA&M (.docx)", _read_bytes(out), file_name=out.name, key="dl_poam_w",
                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -732,6 +739,25 @@ elif PAGE == "Admin":
     if USER["role"] != "admin":
         st.error("Admins only.")
         st.stop()
+
+    st.subheader("Branding (this organization)")
+    st.caption("White-label the dashboard header for " + BRAND["name"] + ".")
+    with st.form("branding"):
+        bc1, bc2, bc3 = st.columns([2, 1, 1])
+        bname = bc1.text_input("Organization name", value=BRAND["name"])
+        blogo = bc2.text_input("Logo (emoji/char)", value=BRAND["logo"], max_chars=2)
+        bcol = bc3.color_picker("Brand color", value=BRAND["brand_color"])
+        bacc = bc3.color_picker("Accent color", value=BRAND["accent_color"])
+        st.markdown(
+            f'<div style="display:flex;gap:12px;align-items:center;margin:6px 0">'
+            f'<div style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;'
+            f'justify-content:center;font-size:22px;background:linear-gradient(135deg,{bcol},{bacc})">'
+            f'{blogo}</div><b style="font-size:18px">{bname}</b></div>', unsafe_allow_html=True)
+        if st.form_submit_button("Save branding", type="primary"):
+            _auth.update_branding(conn, TENANT, name=bname, logo=blogo,
+                                  brand_color=bcol, accent_color=bacc)
+            audit("update_branding", bname)
+            st.success("Branding saved."); st.rerun()
 
     st.subheader("Organizations (tenants)")
     tl = _auth.list_tenants(conn)

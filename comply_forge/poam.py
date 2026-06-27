@@ -105,7 +105,7 @@ def write_oscal_poam(poam: dict, path: str | Path) -> Path:
 
 def write_word_poam(conn, *, system_id: str, catalog_version_id: str,
                     path: str | Path, findings: list[dict] | None = None,
-                    include_stig: bool = True) -> Path:
+                    include_stig: bool = True, org_name: str = "") -> Path:
     import docx
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -120,7 +120,8 @@ def write_word_poam(conn, *, system_id: str, catalog_version_id: str,
     r = t.add_run(f"Plan of Action and Milestones (POA&M)\n{sysrow['name'] if sysrow else system_id}")
     r.bold = True; r.font.size = Pt(16)
     doc.add_paragraph(f"Version 0.1 (DRAFT)   ·   {_dt.date.today():%d %b %Y}   ·   "
-                      f"{len(src)} open item(s)")
+                      f"{len(src)} open item(s)"
+                      + (f"   ·   Prepared for: {org_name}" if org_name else ""))
 
     cols = ("Item", "Control", "Weakness / Deficiency", "Status",
             "Scheduled Completion", "POC")

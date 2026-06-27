@@ -74,6 +74,30 @@ def list_tenants(conn) -> list[dict]:
         "SELECT tenant_id, name FROM tenants ORDER BY name")]
 
 
+_BRAND_DEFAULTS = {"logo": "🛡️", "brand_color": "#4f46e5", "accent_color": "#22d3ee"}
+
+
+def get_tenant(conn, tenant_id: str) -> dict:
+    """Tenant record incl. branding (with defaults if columns are null)."""
+    r = conn.execute("SELECT tenant_id, name, logo, brand_color, accent_color "
+                     "FROM tenants WHERE tenant_id=?", (tenant_id,)).fetchone()
+    d = dict(r) if r else {"tenant_id": tenant_id, "name": "Organization"}
+    for k, v in _BRAND_DEFAULTS.items():
+        if not d.get(k):
+            d[k] = v
+    return d
+
+
+def update_branding(conn, tenant_id: str, *, name: str | None = None, logo: str | None = None,
+                    brand_color: str | None = None, accent_color: str | None = None) -> None:
+    cur = get_tenant(conn, tenant_id)
+    conn.execute("UPDATE tenants SET name=?, logo=?, brand_color=?, accent_color=? WHERE tenant_id=?",
+                 (name or cur["name"], logo or cur["logo"],
+                  brand_color or cur["brand_color"], accent_color or cur["accent_color"],
+                  tenant_id))
+    conn.commit()
+
+
 def ensure_seed(conn) -> str:
     """Create a default tenant + admin if none exist; backfill tenant-less systems.
     Returns the default tenant_id. Default creds: admin / admin (change on first use)."""
