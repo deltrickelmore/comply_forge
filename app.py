@@ -310,6 +310,8 @@ if PAGE == "Dashboard":
                 for msg in _bs.init_all(conn): st.success(msg)
         if st.button("Load 800-171 + CMMC (+ 800-53 crosswalk)"):
             with st.spinner("Downloading 800-171 Rev 3…"): st.success(_bs.init_800171(conn))
+        if st.button("Load NIST CSF 2.0"):
+            with st.spinner("Downloading CSF 2.0…"): st.success(_bs.init_csf(conn))
 
 
 # --------------------------------------------------------------------------- #

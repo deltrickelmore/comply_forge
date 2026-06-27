@@ -135,6 +135,35 @@ def load_cmmc_levels_csv(conn, csv_path: str | Path) -> int:
     return len(payload)
 
 
+def load_csf_oscal(conn, path, version_label: str = "2.0", make_current: bool = True) -> dict:
+    """Load the NIST CSF 2.0 OSCAL catalog (functions/categories/subcategories).
+    CSF carries no embedded 800-53 mapping (NIST publishes those as separate OLIR
+    informative references) — load a crosswalk CSV to link it to 800-53."""
+    import json
+    from .catalog_loader import _iter_controls, _flatten_prose, load_controls
+    from .models import Control
+
+    doc = json.loads(Path(path).read_text())
+    cat = doc.get("catalog", doc)
+    controls = []
+    for raw in _iter_controls(cat):
+        cid = (raw.get("id") or "").lower()          # e.g. 'gv.oc-01'
+        if not cid:
+            continue
+        family = cid.split(".")[0].upper()           # function: GV/ID/PR/DE/RS/RC
+        stmt = (_flatten_prose(raw.get("parts", []), "statement")
+                or _flatten_prose(raw.get("parts", []), "*"))
+        title = raw.get("title", "")
+        if not title or title.lower() == cid:        # CSF uses the id as title; use the text
+            title = (stmt[:120] + ("…" if len(stmt) > 120 else "")) or cid.upper()
+        controls.append(Control(control_id=cid, family=family, title=title,
+                                statement=stmt, guidance="", oscal=raw))
+    cv = load_controls(conn, framework_id="nist_csf", framework_name="NIST Cybersecurity Framework",
+                       authority="NIST", version_label=version_label, controls=controls,
+                       source_uri=str(path), make_current=make_current)
+    return {"controls": len(controls), "catalog_version": cv}
+
+
 def load_800171_oscal(conn, path, version_label: str = "Rev 3",
                       make_current: bool = True) -> dict:
     """Load the NIST 800-171 Rev 3 OSCAL catalog AND derive the authoritative

@@ -25,6 +25,8 @@ _NIST = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
          "nist.gov/SP800-53/rev5/json/")
 _NIST171 = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
             "nist.gov/SP800-171/rev3/json/NIST_SP800-171_rev3_catalog.json")
+_NISTCSF = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
+            "nist.gov/CSF/v2.0/json/NIST_CSF_v2.0_catalog.json")
 _CCI_URL = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CCI_List.zip"
 
 
@@ -88,6 +90,13 @@ def init_800171(conn) -> str:
             f"800-53 mappings; CMMC L1={cm['l1']} L2={cm['l2']}")
 
 
+def init_csf(conn) -> str:
+    from . import adapters
+    tmp = Path("/tmp/cf_csf.json"); tmp.write_bytes(_get(_NISTCSF))
+    res = adapters.load_csf_oscal(conn, tmp)
+    return f"Loaded NIST CSF 2.0: {res['controls']} subcategories"
+
+
 def init_all(conn) -> list[str]:
     return [init_registry(conn), init_catalog(conn), init_baselines(conn),
-            init_cci(conn), init_800171(conn)]
+            init_cci(conn), init_800171(conn), init_csf(conn)]
