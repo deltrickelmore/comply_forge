@@ -49,7 +49,8 @@ def init_baselines(conn) -> str:
             conn, tmp, baseline_id=f"nist_800_53b@{impact}", framework_id="nist_800_53",
             label=impact.title(), impact=impact)
         out.append(f"{impact}={len(baselines.baseline_control_ids(conn, f'nist_800_53b@{impact}'))}")
-    return "Loaded baselines: " + ", ".join(out)
+    n = baselines.derive_cnssi_1253_from_800_53b(conn)
+    return "Loaded baselines: " + ", ".join(out) + f"; derived {n} CNSSI 1253 per-CIA sets"
 
 
 def init_cci(conn) -> str:

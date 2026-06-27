@@ -80,3 +80,26 @@ def baseline_control_ids(conn, baseline_id: str) -> list[str]:
     return [r[0] for r in conn.execute(
         "SELECT control_id FROM baseline_controls WHERE baseline_id=? ORDER BY control_id",
         (baseline_id,))]
+
+
+def derive_cnssi_1253_from_800_53b(conn, framework_id: str = "nist_800_53") -> int:
+    """Create per-CIA (CNSSI 1253) baselines from the loaded 800-53B Low/Mod/High sets.
+
+    APPROXIMATION: real CNSSI 1253 tags each control by security objective (C/I/A) in
+    its Annex tables, which are not a clean public dataset. Here each objective's set
+    at impact level X = the 800-53B baseline at level X. The per-CIA UNION is therefore
+    exact for the overall control set; objective-level precision needs authoritative
+    CNSSI 1253 data loaded via load_cnssi1253_csv() (which overrides these)."""
+    made = 0
+    note = ("Derived from NIST 800-53B (approximation; load authoritative CNSSI 1253 "
+            "tables for objective-level precision)")
+    for impact in ("low", "moderate", "high"):
+        ids = baseline_control_ids(conn, f"nist_800_53b@{impact}")
+        if not ids:
+            continue
+        for dim in ("C", "I", "A"):
+            _upsert_baseline(conn, f"cnssi_1253@{dim}-{impact}", framework_id,
+                             f"{dim} {impact.title()}", dim, impact, note,
+                             "derived:nist_800_53b", ids)
+            made += 1
+    return made

@@ -42,6 +42,8 @@ def main() -> None:
             label=impact.title(), impact=impact)
         n = len(baselines.baseline_control_ids(conn, bid))
         print(f"  loaded {bid}: {n} controls")
+    made = baselines.derive_cnssi_1253_from_800_53b(conn)
+    print(f"  derived {made} CNSSI 1253 per-CIA baselines from 800-53B (approximation)")
 
 
 if __name__ == "__main__":

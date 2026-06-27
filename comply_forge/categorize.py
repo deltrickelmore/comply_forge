@@ -80,7 +80,8 @@ def select_per_cia(conn, cat: Categorization,
         "per_dimension": per_dim,
         "control_ids": sorted(union),
         "control_count": len(union),
-        "note": "CNSSI 1253 per-CIA union (DoD/NSS). Apply overlays as needed. Human review required.",
+        "note": "CNSSI 1253 per-CIA union (DoD/NSS); per-objective sets approximated from "
+                "800-53B unless authoritative CNSSI 1253 data is loaded. Apply overlays; human review required.",
     }
 
 
