@@ -23,6 +23,8 @@ _REGISTRY = Path(__file__).resolve().parent.parent / "data" / "framework_registr
 _UA = {"User-Agent": "Mozilla/5.0"}
 _NIST = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
          "nist.gov/SP800-53/rev5/json/")
+_NIST171 = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
+            "nist.gov/SP800-171/rev3/json/NIST_SP800-171_rev3_catalog.json")
 _CCI_URL = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CCI_List.zip"
 
 
@@ -77,5 +79,15 @@ def init_registry(conn) -> str:
     return f"Seeded {len(rows)} frameworks into the registry"
 
 
+def init_800171(conn) -> str:
+    from . import adapters
+    tmp = Path("/tmp/cf_800-171.json"); tmp.write_bytes(_get(_NIST171))
+    res = adapters.load_800171_oscal(conn, tmp)
+    cm = adapters.seed_cmmc_from_800171(conn)
+    return (f"Loaded 800-171 Rev 3: {res['controls']} controls, {res['mappings']} "
+            f"800-53 mappings; CMMC L1={cm['l1']} L2={cm['l2']}")
+
+
 def init_all(conn) -> list[str]:
-    return [init_registry(conn), init_catalog(conn), init_baselines(conn), init_cci(conn)]
+    return [init_registry(conn), init_catalog(conn), init_baselines(conn),
+            init_cci(conn), init_800171(conn)]

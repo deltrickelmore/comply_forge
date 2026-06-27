@@ -308,6 +308,8 @@ if PAGE == "Dashboard":
         if b4.button("Load all", type="primary"):
             with st.spinner("Downloading all reference data…"):
                 for msg in _bs.init_all(conn): st.success(msg)
+        if st.button("Load 800-171 + CMMC (+ 800-53 crosswalk)"):
+            with st.spinner("Downloading 800-171 Rev 3…"): st.success(_bs.init_800171(conn))
 
 
 # --------------------------------------------------------------------------- #
@@ -341,6 +343,20 @@ elif PAGE == "Categorize (CIA)":
     if model == "per_cia":
         st.caption("`per_cia` uses 800-53B-derived per-objective sets (approximation) "
                    "unless authoritative CNSSI 1253 data is loaded below.")
+
+    with st.expander("CMMC (NIST SP 800-171)"):
+        from comply_forge import adapters as _ad
+        lvl = st.radio("CMMC Level", [1, 2], horizontal=True,
+                       format_func=lambda l: {1: "Level 1 (Foundational)",
+                                              2: "Level 2 (Advanced)"}[l])
+        ids = _ad.cmmc_profile(conn, lvl)
+        if ids:
+            st.success(f"CMMC Level {lvl}: {len(ids)} NIST SP 800-171 requirements.")
+            st.code(", ".join(ids[:60]) + (" ..." if len(ids) > 60 else ""))
+            st.download_button("Download CMMC L%d requirements (.txt)" % lvl,
+                               "\n".join(ids), file_name=f"cmmc_L{lvl}_800-171.txt")
+        else:
+            st.info("Load 800-171 + CMMC first (Dashboard → Initialize data).")
     with st.expander("Load authoritative CNSSI 1253 per-CIA baselines"):
         from comply_forge import baselines as _bl
         st.caption("Upload a table with columns **dimension** (C/I/A), **impact** "
