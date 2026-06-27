@@ -73,6 +73,11 @@ def build_oscal_sar(conn, *, system_id: str, catalog_version_id: str) -> dict:
         "uuid": str(uuid.uuid4()),
         "title": f"{(f['control_id'] or 'finding').upper()} — {f['result']}",
         "description": f["description"],
+        "target": {
+            "type": "objective-id",
+            "target-id": f"{(f['control_id'] or 'finding').lower()}_obj",
+            "status": {"state": "not-satisfied", "reason": "fail"},
+        },
         "props": [
             {"name": "control-id", "value": (f["control_id"] or "").lower(),
              "ns": "https://complyforge.local/ns/oscal"},
@@ -96,6 +101,9 @@ def build_oscal_sar(conn, *, system_id: str, catalog_version_id: str) -> dict:
             "description": (f"{a['assessed']} controls assessed; {a['satisfied']} satisfied, "
                             f"{a['other_than_satisfied']} other-than-satisfied."),
             "start": _now(),
+            "reviewed-controls": {
+                "control-selections": [{"include-all": {}}],
+            },
             "findings": oscal_findings,
         }],
     }}

@@ -434,7 +434,14 @@ elif PAGE == "Draft Control Response":
 # Authorization Package (SSP + POA&M)
 # --------------------------------------------------------------------------- #
 elif PAGE == "Authorization Package":
-    from comply_forge import ssp as _ssp, poam as _poam, sar as _sar
+    from comply_forge import ssp as _ssp, poam as _poam, sar as _sar, validation as _val
+
+    def _show_oscal_validity(doc):
+        ok, msgs = _val.validate(doc)
+        if ok:
+            st.success("✓ Valid OSCAL (NIST v1.1.2 schema)")
+        else:
+            st.warning(f"{len(msgs)} OSCAL schema issue(s): " + "; ".join(msgs[:3]))
     st.title("Authorization Package — SSP & POA&M")
     cv = _current_catalog()
     sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name", (TENANT,)).fetchall()
@@ -487,6 +494,7 @@ elif PAGE == "Authorization Package":
             import json as _json
             doc = _sar.build_oscal_sar(conn, system_id=sid, catalog_version_id=cv)
             audit("generate_sar", sysname)
+            _show_oscal_validity(doc)
             f1.download_button("⬇ SAR (OSCAL JSON)", _json.dumps(doc, indent=2),
                                file_name=f"{sysname}_SAR.json", mime="application/json", key="dl_sar_j")
         if f2.button("Generate Word SAR", key="sar_word"):
@@ -503,6 +511,7 @@ elif PAGE == "Authorization Package":
         if d.button("Generate OSCAL POA&M", key="poam_oscal"):
             doc = _poam.build_oscal_poam(conn, system_id=sid, catalog_version_id=cv)
             audit("generate_poam", sysname)
+            _show_oscal_validity(doc)
             import json as _json
             d.download_button("⬇ POA&M (OSCAL JSON)", _json.dumps(doc, indent=2),
                               file_name=f"{sysname}_POAM.json", mime="application/json", key="dl_poam_j")

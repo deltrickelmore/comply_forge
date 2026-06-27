@@ -115,6 +115,11 @@ def build_oscal_ssp(conn, *, system_id: str, catalog_version_id: str,
                 "security-objective-availability": impact,
             },
             "status": {"state": "operational"},
+            "authorization-boundary": {
+                "description": f"The authorization boundary of {sysrow['name']} encompasses "
+                               "the system components, services, and interconnections documented "
+                               "in this SSP. [Refine with the authorization boundary diagram.]"
+            },
         },
         "system-implementation": {
             "users": [{"uuid": str(uuid.uuid4()), "title": "System users",
@@ -143,17 +148,12 @@ def write_oscal_ssp(ssp: dict, path: str | Path) -> Path:
 
 
 def validate_oscal(ssp: dict) -> tuple[bool, str]:
-    """Best-effort OSCAL validation if oscal-pydantic is installed; else a skip note."""
-    try:
-        import oscal_pydantic  # noqa: F401
-    except ImportError:
-        return False, "oscal-pydantic not installed — structural emit only (validation skipped)."
-    try:
-        from oscal_pydantic.document import Document  # type: ignore
-        Document.model_validate(ssp)
-        return True, "OSCAL schema validation passed."
-    except Exception as e:  # pragma: no cover
-        return False, f"OSCAL validation error: {e}"
+    """Validate against the official NIST OSCAL SSP schema. Returns (ok, message)."""
+    from . import validation
+    ok, msgs = validation.validate(ssp, "ssp")
+    if ok:
+        return True, "OSCAL SSP schema validation passed (NIST v1.1.2)."
+    return False, f"{len(msgs)} OSCAL issue(s): " + "; ".join(msgs[:3])
 
 
 def write_word_ssp(conn, *, system_id: str, catalog_version_id: str,
