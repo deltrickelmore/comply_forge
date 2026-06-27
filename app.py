@@ -207,7 +207,7 @@ elif PAGE == "Draft Control Response":
 # Authorization Package (SSP + POA&M)
 # --------------------------------------------------------------------------- #
 elif PAGE == "Authorization Package":
-    from comply_forge import ssp as _ssp, poam as _poam
+    from comply_forge import ssp as _ssp, poam as _poam, sar as _sar
     st.title("Authorization Package — SSP & POA&M")
     cv = _current_catalog()
     sys_rows = conn.execute("SELECT system_id, name FROM systems ORDER BY name").fetchall()
@@ -245,6 +245,23 @@ elif PAGE == "Authorization Package":
                                       path=Path(tempfile.mkdtemp()) / f"{sysname}_SSP.docx")
             b.download_button("⬇ SSP (.docx)", _read_bytes(out), file_name=out.name, key="dl_ssp_w",
                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+        st.subheader("Security Assessment Report (SAR)")
+        summ = _sar.assess(conn, sid, cv)
+        st.caption(f"{summ['assessed']} assessed · {summ['satisfied']} satisfied · "
+                   f"{summ['other_than_satisfied']} other-than-satisfied · "
+                   f"{len(summ['findings'])} finding(s)")
+        f1, f2 = st.columns(2)
+        if f1.button("Generate OSCAL SAR", key="sar_oscal"):
+            import json as _json
+            doc = _sar.build_oscal_sar(conn, system_id=sid, catalog_version_id=cv)
+            f1.download_button("⬇ SAR (OSCAL JSON)", _json.dumps(doc, indent=2),
+                               file_name=f"{sysname}_SAR.json", mime="application/json", key="dl_sar_j")
+        if f2.button("Generate Word SAR", key="sar_word"):
+            out = _sar.write_word_sar(conn, system_id=sid, catalog_version_id=cv,
+                                      path=Path(tempfile.mkdtemp()) / f"{sysname}_SAR.docx")
+            f2.download_button("⬇ SAR (.docx)", _read_bytes(out), file_name=out.name, key="dl_sar_w",
+                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
         st.subheader("Plan of Action & Milestones (POA&M)")
         open_n = len(_poam.open_items(conn, sid, cv))
