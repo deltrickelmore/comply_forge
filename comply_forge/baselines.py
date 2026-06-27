@@ -88,6 +88,20 @@ def load_cnssi1253_csv(conn, csv_path: str | Path, framework_id="nist_800_53") -
     return load_cnssi1253_rows(conn, rows, framework_id, source=str(csv_path))
 
 
+def export_cnssi1253_csv(conn) -> str:
+    """Export the current per-CIA (CNSSI 1253) baselines as an editable CSV."""
+    import csv as _csv
+    import io as _io
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["dimension", "impact", "control_id"])
+    for dim in ("C", "I", "A"):
+        for imp in ("low", "moderate", "high"):
+            for cid in baseline_control_ids(conn, f"cnssi_1253@{dim}-{imp}"):
+                w.writerow([dim, imp, cid])
+    return buf.getvalue()
+
+
 def baseline_control_ids(conn, baseline_id: str) -> list[str]:
     return [r[0] for r in conn.execute(
         "SELECT control_id FROM baseline_controls WHERE baseline_id=? ORDER BY control_id",

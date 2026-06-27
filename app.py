@@ -323,6 +323,11 @@ elif PAGE == "Categorize (CIA)":
         st.caption("Upload a table with columns **dimension** (C/I/A), **impact** "
                    "(low/moderate/high), **control_id** — e.g. exported from the CNSS "
                    "1253 baseline workbook. This overrides the approximation.")
+        if conn.execute("SELECT COUNT(*) FROM baselines WHERE dimension IN ('C','I','A')").fetchone()[0]:
+            st.download_button("⬇ Download current per-CIA baselines (editable CSV)",
+                               _bl.export_cnssi1253_csv(conn),
+                               file_name="cnssi_1253_per_cia.csv", mime="text/csv")
+            st.caption("Edit this against the CNSSI 1253 PDF and re-upload to make it authoritative.")
         cf = st.file_uploader("CNSSI 1253 baselines (.csv or .xlsx)", type=["csv", "xlsx"])
         if cf and st.button("Load CNSSI 1253 data", type="primary"):
             try:
