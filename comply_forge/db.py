@@ -32,6 +32,25 @@ PRAGMA foreign_keys = ON;
 PRAGMA journal_mode = WAL;
 
 -- ---------------------------------------------------------------------------
+-- Multi-tenancy + auth. Reference data (controls, baselines, CCIs, STIG catalog,
+-- frameworks) is SHARED across tenants; tenant-scoped data hangs off `systems`
+-- via systems.tenant_id, so filtering systems by tenant isolates everything
+-- downstream (implemented_requirements, stig_assignments, stig_findings).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tenants (
+    tenant_id   TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    created_at  TEXT
+);
+CREATE TABLE IF NOT EXISTS users (
+    username      TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,         -- pbkdf2: salt_hex:hash_hex
+    tenant_id     TEXT NOT NULL REFERENCES tenants(tenant_id),
+    role          TEXT NOT NULL DEFAULT 'user',  -- user | admin
+    created_at    TEXT
+);
+
+-- ---------------------------------------------------------------------------
 -- Framework registry. One row per framework family (not per revision).
 -- kind drives how the framework behaves:
 --   'control_catalog' -> has selectable controls (800-53, 800-171, CIS, FISCAM)
@@ -295,6 +314,7 @@ _MIGRATIONS = [
     ("frameworks", "category", "TEXT"),
     ("frameworks", "ingest_method", "TEXT"),
     ("frameworks", "anchor", "INTEGER NOT NULL DEFAULT 0"),
+    ("systems", "tenant_id", "TEXT"),
 ]
 
 

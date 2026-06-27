@@ -15,12 +15,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from comply_forge.db import connect
-from comply_forge import control_responder, stig
+from comply_forge import control_responder, stig, auth
 from comply_forge.llm_provider import FakeProvider
 
 
 def main() -> None:
     conn = connect()
+    tenant = auth.ensure_seed(conn)  # default tenant + admin/admin
     if conn.execute("SELECT COUNT(*) FROM systems").fetchone()[0]:
         print("systems already exist — skipping demo seed")
         return
@@ -31,11 +32,11 @@ def main() -> None:
         return
     cv = cv[0]
     now = _dt.datetime.now(_dt.timezone.utc).isoformat()
-    conn.execute("INSERT INTO systems (system_id,name,description,impact_level,created_at) "
-                 "VALUES (?,?,?,?,?)",
+    conn.execute("INSERT INTO systems (system_id,name,description,impact_level,created_at,tenant_id) "
+                 "VALUES (?,?,?,?,?,?)",
                  ("demo", "Demo Enclave (sample)",
                   "Linux web application behind an IdP (SAML SSO), centralized logging to Splunk, "
-                  "hosted in a Moderate-impact enclave.", "moderate", now))
+                  "hosted in a Moderate-impact enclave.", "moderate", now, tenant))
     conn.commit()
 
     fp = FakeProvider()

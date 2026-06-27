@@ -44,20 +44,47 @@ def _read_bytes(path) -> bytes:
 # --------------------------------------------------------------------------- #
 conn = db()
 prov = get_provider()
+from comply_forge import auth as _auth
+_auth.ensure_seed(conn)
+
+# --- login gate (multi-tenant) ---
+if "user" not in st.session_state:
+    st.markdown("## 🛡️ ComplyForge")
+    st.caption("RMF authorization & continuous-monitoring workbench")
+    with st.form("login"):
+        st.subheader("Sign in")
+        _u = st.text_input("Username")
+        _p = st.text_input("Password", type="password")
+        if st.form_submit_button("Sign in", type="primary"):
+            _usr = _auth.authenticate(conn, _u.strip(), _p)
+            if _usr:
+                st.session_state["user"] = _usr
+                st.rerun()
+            else:
+                st.error("Invalid username or password.")
+    st.caption("First run: **admin / admin** — change it after signing in.")
+    st.stop()
+
+USER = st.session_state["user"]
+TENANT = USER["tenant_id"]
+
 st.sidebar.title("🛡️ ComplyForge")
-st.sidebar.caption("Framework-agnostic GRC artifact engine")
+st.sidebar.caption(f"{USER['tenant_name']} · {USER['username']} ({USER['role']})")
 PAGE = st.sidebar.radio("Navigate", [
     "Dashboard", "Categorize (CIA)", "Controls",
     "Draft Control Response", "Authorization Package",
     "FISCAM Test Plan", "Control Family Plans",
     "STIG Library", "Review Queue",
-])
+] + (["Admin"] if USER["role"] == "admin" else []))
 st.sidebar.divider()
 st.sidebar.markdown(f"**LLM provider:** `{prov.name}`")
 if prov.name == "fake":
     st.sidebar.info("No key set → deterministic drafts. Set `ANTHROPIC_API_KEY` "
                     "(dev) or `COMPLYFORGE_LLM_PROVIDER=bedrock` (CUI).")
 st.sidebar.caption("All drafts require human review — nothing is auto-attested.")
+if st.sidebar.button("Sign out"):
+    del st.session_state["user"]
+    st.rerun()
 
 
 def _current_catalog(framework_id="nist_800_53") -> str | None:
@@ -79,7 +106,7 @@ if PAGE == "Dashboard":
     baselines_n = n("SELECT COUNT(*) FROM baselines")
     ccis = n("SELECT COUNT(*) FROM cci_items")
     stigs = n("SELECT COUNT(*) FROM stigs")
-    systems = n("SELECT COUNT(*) FROM systems")
+    systems = c.execute("SELECT COUNT(*) FROM systems WHERE tenant_id=?", (TENANT,)).fetchone()[0]
     review = n("SELECT COUNT(*) FROM implemented_requirements WHERE needs_review=1")
     stig_rules = n("SELECT COUNT(*) FROM stig_rules")
 
@@ -165,11 +192,12 @@ if PAGE == "Dashboard":
         # recent activity
         acts = c.execute(
             """SELECT label, ts FROM (
-                 SELECT 'Control '||upper(control_id) label, updated_at ts
-                   FROM implemented_requirements WHERE updated_at IS NOT NULL
+                 SELECT 'Control '||upper(ir.control_id) label, ir.updated_at ts
+                   FROM implemented_requirements ir JOIN systems s ON s.system_id=ir.system_id
+                  WHERE ir.updated_at IS NOT NULL AND s.tenant_id=:t
                  UNION ALL SELECT 'STIG: '||title, loaded_at FROM stigs
-                 UNION ALL SELECT 'System: '||name, created_at FROM systems
-               ) WHERE ts IS NOT NULL ORDER BY ts DESC LIMIT 6""").fetchall()
+                 UNION ALL SELECT 'System: '||name, created_at FROM systems WHERE tenant_id=:t
+               ) WHERE ts IS NOT NULL ORDER BY ts DESC LIMIT 6""", {"t": TENANT}).fetchall()
         if acts:
             rows = "".join(f'<div class="act"><span class="dot"></span>'
                            f'<span>{a[0][:34]}</span><span class="t">{(a[1] or "")[:10]}</span></div>'
@@ -178,7 +206,8 @@ if PAGE == "Dashboard":
                         unsafe_allow_html=True)
 
     # ---- System focus: coverage + posture + STIG findings ----
-    sys_rows = c.execute("SELECT system_id, name, impact_level FROM systems ORDER BY name").fetchall()
+    sys_rows = c.execute("SELECT system_id, name, impact_level FROM systems WHERE tenant_id=? "
+                         "ORDER BY name", (TENANT,)).fetchall()
     if sys_rows:
         st.markdown("#### System posture")
         names = {r["name"]: r for r in sys_rows}
@@ -314,16 +343,16 @@ elif PAGE == "Draft Control Response":
         st.warning("Load 800-53 first (`scripts/fetch_catalogs.py`).")
     else:
         with st.expander("Systems", expanded=True):
-            sys_rows = conn.execute("SELECT system_id, name FROM systems ORDER BY name").fetchall()
+            sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name", (TENANT,)).fetchall()
             with st.form("new_sys"):
                 sn = st.text_input("New system name")
                 sd = st.text_area("Description (tech stack, IdP, logging, etc.)")
                 si = st.selectbox("Impact", ["low", "moderate", "high"], index=1)
                 if st.form_submit_button("Add system") and sn:
-                    conn.execute("INSERT INTO systems (system_id,name,description,impact_level,created_at) "
-                                 "VALUES (?,?,?,?,?)", (str(uuid.uuid4()), sn, sd, si, _now()))
+                    conn.execute("INSERT INTO systems (system_id,name,description,impact_level,created_at,tenant_id) "
+                                 "VALUES (?,?,?,?,?,?)", (str(uuid.uuid4()), sn, sd, si, _now(), TENANT))
                     conn.commit(); st.rerun()
-        sys_rows = conn.execute("SELECT system_id, name FROM systems ORDER BY name").fetchall()
+        sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name", (TENANT,)).fetchall()
         if not sys_rows:
             st.info("Add a system above to begin.")
         else:
@@ -351,7 +380,7 @@ elif PAGE == "Authorization Package":
     from comply_forge import ssp as _ssp, poam as _poam, sar as _sar
     st.title("Authorization Package — SSP & POA&M")
     cv = _current_catalog()
-    sys_rows = conn.execute("SELECT system_id, name FROM systems ORDER BY name").fetchall()
+    sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name", (TENANT,)).fetchall()
     if not cv:
         st.warning("Load 800-53 first.")
     elif not sys_rows:
@@ -581,7 +610,7 @@ elif PAGE == "STIG Library":
                 st.markdown("**Check**"); st.code(full["check_content"] or "—")
                 st.markdown("**Fix**"); st.code(full["fix_text"] or "—")
         with tab_apply:
-            sys_rows = conn.execute("SELECT system_id, name FROM systems ORDER BY name").fetchall()
+            sys_rows = conn.execute("SELECT system_id, name FROM systems WHERE tenant_id=? ORDER BY name", (TENANT,)).fetchall()
             if not sys_rows:
                 st.info("Add a system (Draft Control Response page) to assign STIGs.")
             else:
@@ -629,8 +658,9 @@ elif PAGE == "Review Queue":
     st.caption("Human authorization gate — drafts are not counted until approved.")
     rows = conn.execute(
         """SELECT ir.ir_id, s.name, ir.control_id, ir.origin, ir.statement
-             FROM implemented_requirements ir LEFT JOIN systems s ON s.system_id=ir.system_id
-            WHERE ir.needs_review=1 ORDER BY ir.updated_at DESC LIMIT 50""").fetchall()
+             FROM implemented_requirements ir JOIN systems s ON s.system_id=ir.system_id
+            WHERE ir.needs_review=1 AND s.tenant_id=? ORDER BY ir.updated_at DESC LIMIT 50""",
+        (TENANT,)).fetchall()
     if not rows:
         st.success("Nothing awaiting review.")
     for r in rows:
@@ -642,3 +672,56 @@ elif PAGE == "Review Queue":
                              "reviewed_by=?, reviewed_at=?, status='implemented' WHERE ir_id=?",
                              (reviewer, _now(), r[0]))
                 conn.commit(); st.rerun()
+
+
+# --------------------------------------------------------------------------- #
+# Admin (tenant + user management; admins only)
+# --------------------------------------------------------------------------- #
+elif PAGE == "Admin":
+    st.title("Admin")
+    if USER["role"] != "admin":
+        st.error("Admins only.")
+        st.stop()
+
+    st.subheader("Organizations (tenants)")
+    tl = _auth.list_tenants(conn)
+    st.dataframe([{"tenant_id": t["tenant_id"], "name": t["name"],
+                   "systems": conn.execute("SELECT COUNT(*) FROM systems WHERE tenant_id=?",
+                                           (t["tenant_id"],)).fetchone()[0],
+                   "users": conn.execute("SELECT COUNT(*) FROM users WHERE tenant_id=?",
+                                         (t["tenant_id"],)).fetchone()[0]} for t in tl],
+                 width="stretch", hide_index=True)
+    with st.form("new_tenant"):
+        tn = st.text_input("New organization name")
+        if st.form_submit_button("Create organization") and tn.strip():
+            _auth.create_tenant(conn, tn.strip()); st.success(f"Created {tn}"); st.rerun()
+
+    st.subheader("Users")
+    urows = conn.execute("SELECT u.username, t.name tenant, u.role FROM users u "
+                         "JOIN tenants t ON t.tenant_id=u.tenant_id ORDER BY t.name, u.username").fetchall()
+    st.dataframe([{"username": r[0], "organization": r[1], "role": r[2]} for r in urows],
+                 width="stretch", hide_index=True)
+    with st.form("new_user"):
+        nu = st.text_input("Username")
+        npw = st.text_input("Temporary password", type="password")
+        tmap = {t["name"]: t["tenant_id"] for t in tl}
+        torg = st.selectbox("Organization", list(tmap)) if tmap else None
+        nrole = st.selectbox("Role", ["user", "admin"])
+        if st.form_submit_button("Create user") and nu.strip() and npw and torg:
+            try:
+                _auth.create_user(conn, nu.strip(), npw, tmap[torg], nrole)
+                st.success(f"Created user {nu}"); st.rerun()
+            except Exception as e:
+                st.error(f"Could not create user: {e}")
+
+    st.subheader("Change my password")
+    with st.form("chpw"):
+        p1 = st.text_input("New password", type="password")
+        p2 = st.text_input("Confirm", type="password")
+        if st.form_submit_button("Update password"):
+            if p1 and p1 == p2:
+                conn.execute("UPDATE users SET password_hash=? WHERE username=?",
+                             (_auth.hash_password(p1), USER["username"]))
+                conn.commit(); st.success("Password updated.")
+            else:
+                st.error("Passwords don't match.")
