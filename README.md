@@ -16,6 +16,11 @@ python3 scripts/fetch_cci.py           # DISA CCI list (5,137 CCIs)
 streamlit run app.py
 ```
 
+**Sign in** at first run with **`admin` / `admin`** (change it on the Admin page).
+ComplyForge is multi-tenant: each organization's systems and artifacts are isolated;
+reference data (controls, baselines, CCIs, STIG catalog) is shared. Admins manage
+organizations and users on the Admin page.
+
 The UI exposes every engine as a button: Dashboard, **Categorize (CIA)**, Controls
 browser, **Draft Control Response**, **Authorization Package** (SSP + POA&M),
 **FISCAM Test Plan** (generate / upload-your-template), **Control Family Plans**, and a
