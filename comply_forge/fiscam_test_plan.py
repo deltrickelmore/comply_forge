@@ -105,17 +105,19 @@ _LLM_FIELDS = {
 _LIST_FIELDS = {"tod_documents", "tod_procedures", "toe_source_documents"}
 
 # Org-context defaults (override via org_context dict).
+# Blank by default — client/engagement fields are filled when a client is known
+# (via org_context or directly in the workbook). No org-identifying defaults.
 _ORG_DEFAULTS = {
-    "jd_code": "J6",
-    "assessable_unit": "DLA Information Operations",
-    "sub_assessable_units": "Not Applicable",
-    "operation_objective": "Not Applicable",
-    "management_assertion": "Not Applicable",
-    "impacted_fsli": "Not Applicable",
-    "location_executed": "Remote",
-    "tod_walkthrough_locations": "Remote",
-    "toe_testing_location": "Remote",
-    "compensating_control": "Not applicable unless TOE fails.",
+    "jd_code": "",
+    "assessable_unit": "",
+    "sub_assessable_units": "",
+    "operation_objective": "",
+    "management_assertion": "",
+    "impacted_fsli": "",
+    "location_executed": "",
+    "tod_walkthrough_locations": "",
+    "toe_testing_location": "",
+    "compensating_control": "",
 }
 
 SYSTEM_PROMPT = """\
@@ -224,12 +226,12 @@ def _deterministic_fields(control_id: str, title: str, text: str,
                           org: dict[str, str]) -> dict[str, str]:
     """Full FISCAM-style draft without an LLM. TOD/TOE boilerplate is standard;
     control-specific fields derive from the control text. Always needs_review."""
-    unit = org.get("assessable_unit", "the assessable unit")
+    unit = org.get("assessable_unit") or "the assessable unit"
     objective = title or (text[:120] if text else "the control objective")
     activity = text or "[provide the control activity description]"
     std_docs = [
         "System Security Plan (SSP) — current approved version (eMASS)",
-        "Authoritative policy/SOP governing the control (e.g., DLA RMF SOP 8510.01-01)",
+        "Authoritative policy/SOP governing the control",
         "Approval memorandum / management sign-off",
         "Risk Assessment Report (RAR) from eMASS",
     ]
@@ -343,11 +345,10 @@ def write_workbook(plan: FiscamTestPlan, path: str | Path,
 
 
 _DEFAULT_AUTH_DOCS = [
-    "DLA RMF SOP 8510.01-01 (March 4, 2022; expires March 4, 2027)",
-    "DALI 5200.01 Information Security Program",
-    "DoD Manual 5200.01, Information Security Program",
-    "DLAI 8500.01, Cybersecurity Rules of Behavior",
+    "Organizational RMF / cybersecurity policy and standard operating procedures",
+    "DoD Manual 5200.01, Information Security Program (if applicable)",
     "FIPS 199 / CNSSI 1253 (security categorization standards)",
+    "System Security Plan (SSP) and Risk Assessment Report (RAR)",
     "eMASS — Enterprise Mission Assurance Support Service",
     "ACAS — Assured Compliance Assessment Solution",
 ]

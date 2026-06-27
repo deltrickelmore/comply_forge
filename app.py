@@ -522,14 +522,22 @@ elif PAGE == "FISCAM Test Plan":
     tab_gen, tab_upload = st.tabs(["Generate (built-in template)", "Upload your template"])
 
     with tab_gen:
-        cid = st.text_input("Control ID", value="SM.04.02.01")
-        title = st.text_input("Control title", value="Security Categorization")
-        text = st.text_area("Control text",
-                            value="The ISSM categorizes the system per FIPS 199 and CNSSI 1253; "
-                                  "the AO approves; reviewed annually.")
-        if st.button("Generate test plan", type="primary", key="gen_tp"):
+        cid = st.text_input("Control ID", value="", placeholder="e.g. SM.04.02.01")
+        title = st.text_input("Control title", value="", placeholder="e.g. Security Categorization")
+        text = st.text_area("Control text", value="",
+                            placeholder="Paste the FISCAM 2024 control activity language here.")
+        with st.expander("Client / engagement details (optional — left blank otherwise)"):
+            oc1, oc2 = st.columns(2)
+            jd = oc1.text_input("J/D Code / MSC", value="")
+            au = oc2.text_input("Assessable Unit", value="")
+            aum = oc1.text_input("Assessable Unit Manager", value="")
+            loc = oc2.text_input("Location of executed control", value="")
+        org_ctx = {k: v for k, v in {"jd_code": jd, "assessable_unit": au,
+                   "assessable_unit_manager": aum, "location_executed": loc}.items() if v}
+        if st.button("Generate test plan", type="primary", key="gen_tp", disabled=not cid):
             plan = fiscam_test_plan.draft_test_plan(
-                conn, control_id=cid, control_title=title, control_text=text, provider=prov)
+                conn, control_id=cid, control_title=title, control_text=text,
+                org_context=org_ctx, provider=prov)
             out = Path(tempfile.mkdtemp()) / f"Enterprise_{cid.replace('.', '_')}.xlsx"
             fiscam_test_plan.write_workbook(plan, out)
             audit("generate_test_plan", cid)
