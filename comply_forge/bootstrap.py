@@ -9,12 +9,16 @@ separately via the STIG Library page.
 
 from __future__ import annotations
 
+import csv
 import io
 import urllib.request
 import zipfile
 from pathlib import Path
 
 from . import catalog_loader, baselines, cci
+from .db import FRAMEWORK_KINDS
+
+_REGISTRY = Path(__file__).resolve().parent.parent / "data" / "framework_registry.csv"
 
 _UA = {"User-Agent": "Mozilla/5.0"}
 _NIST = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
@@ -56,5 +60,21 @@ def init_cci(conn) -> str:
     return f"Loaded {stats['cci_items']} CCIs ({stats['mappings']} control mappings)"
 
 
+def init_registry(conn) -> str:
+    """Seed the framework registry (local CSV, no network)."""
+    rows = list(csv.DictReader(_REGISTRY.read_text().splitlines()))
+    conn.executemany(
+        """INSERT INTO frameworks
+             (framework_id,name,authority,kind,category,ingest_method,anchor,notes)
+           VALUES (:framework_id,:name,:authority,:kind,:category,:ingest_method,:anchor,:notes)
+           ON CONFLICT(framework_id) DO UPDATE SET
+             name=excluded.name, authority=excluded.authority, kind=excluded.kind,
+             category=excluded.category, ingest_method=excluded.ingest_method,
+             anchor=excluded.anchor, notes=excluded.notes""",
+        [{**r, "anchor": int(r.get("anchor") or 0)} for r in rows])
+    conn.commit()
+    return f"Seeded {len(rows)} frameworks into the registry"
+
+
 def init_all(conn) -> list[str]:
-    return [init_catalog(conn), init_baselines(conn), init_cci(conn)]
+    return [init_registry(conn), init_catalog(conn), init_baselines(conn), init_cci(conn)]
