@@ -467,6 +467,42 @@ elif PAGE == "Authorization Package":
             st.warning(f"{unrev} control response(s) still need review — the SSP will flag them "
                        "as DRAFT. Approve in the Review Queue before authorization.")
 
+        st.subheader("Full authorization package")
+        st.caption("SSP + SAR + POA&M in one download (OSCAL JSON + Word).")
+        if st.button("⬇ Build full package (.zip)", type="primary", key="pkg_zip"):
+            import io as _io, zipfile as _zip, json as _json
+            tmp = Path(tempfile.mkdtemp())
+            kw = dict(prepared_by=BRAND["name"], prepared_for=apkg_agency,
+                      brand_color=BRAND["brand_color"])
+            ssp_j = _ssp.build_oscal_ssp(conn, system_id=sid, catalog_version_id=cv)
+            sar_j = _sar.build_oscal_sar(conn, system_id=sid, catalog_version_id=cv)
+            poam_j = _poam.build_oscal_poam(conn, system_id=sid, catalog_version_id=cv)
+            ssp_w = _ssp.write_word_ssp(conn, system_id=sid, catalog_version_id=cv,
+                                        path=tmp / f"{sysname}_SSP.docx", **kw)
+            sar_w = _sar.write_word_sar(conn, system_id=sid, catalog_version_id=cv,
+                                        path=tmp / f"{sysname}_SAR.docx", **kw)
+            poam_w = _poam.write_word_poam(conn, system_id=sid, catalog_version_id=cv,
+                                           path=tmp / f"{sysname}_POAM.docx", **kw)
+            valid = {k: _val.validate(d)[0] for k, d in
+                     (("SSP", ssp_j), ("SAR", sar_j), ("POA&M", poam_j))}
+            manifest = (f"Authorization Package — {sysname}\n"
+                        f"Prepared by: {BRAND['name']}   Prepared for: {apkg_agency or '[client]'}\n"
+                        f"Generated: {_now()}\nOSCAL valid (NIST v1.1.2): {valid}\n"
+                        "All artifacts are DRAFT and require human review.\n")
+            buf = _io.BytesIO()
+            with _zip.ZipFile(buf, "w", _zip.ZIP_DEFLATED) as z:
+                z.writestr("MANIFEST.txt", manifest)
+                z.writestr(f"{sysname}_SSP.json", _json.dumps(ssp_j, indent=2))
+                z.writestr(f"{sysname}_SAR.json", _json.dumps(sar_j, indent=2))
+                z.writestr(f"{sysname}_POAM.json", _json.dumps(poam_j, indent=2))
+                for w in (ssp_w, sar_w, poam_w):
+                    z.write(w, arcname=w.name)
+            audit("generate_package", sysname, f"valid={valid}")
+            st.success(f"Package built — OSCAL valid: {valid}")
+            st.download_button("⬇ Download package (.zip)", buf.getvalue(),
+                               file_name=f"{sysname}_Authorization_Package.zip",
+                               mime="application/zip", key="dl_pkg")
+
         st.subheader("System Security Plan (SSP)")
         a, b = st.columns(2)
         if a.button("Generate OSCAL SSP", key="ssp_oscal"):
