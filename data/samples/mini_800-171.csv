@@ -1,0 +1,4 @@
+control_id,family,title,statement,guidance
+3.1.1,3.1,Limit System Access,"Limit system access to authorized users, processes acting on behalf of authorized users, and devices.","Access Control requirement family 3.1."
+3.1.2,3.1,Limit Transaction Functions,"Limit system access to the types of transactions and functions that authorized users are permitted to execute.","Least functionality for users."
+3.3.1,3.3,Create Audit Records,"Create and retain system audit logs and records to enable monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity.","Audit and Accountability family 3.3."

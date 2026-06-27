@@ -1,0 +1,14 @@
+# Foundation layer is stdlib-only -- nothing required to run db/loader/crosswalk.
+# These are for the NEXT layers (LLM responder, artifacts, UI).
+
+# --- LLM (phase 3) ---
+anthropic>=0.40            # public Claude API (AnthropicProvider); dev on synthetic data
+# anthropic[bedrock]       # for BedrockProvider -> Claude on AWS Bedrock GovCloud (CUI/FedRAMP/IL4-5)
+
+# --- Artifacts (phase 4) ---
+openpyxl>=3.1             # FISCAM 2024 test-plan .xlsx generator (fiscam_test_plan.py)
+python-docx>=1.1           # Word SSP/POA&M
+# oscal-pydantic>=2.0      # optional: full typed OSCAL instead of dict blobs
+
+# --- UI (phase 5) ---
+streamlit>=1.40

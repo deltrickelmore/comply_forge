@@ -1,0 +1,177 @@
+framework_id,name,category,kind,authority,ingest_method,anchor,notes
+nist_csf,NIST Cybersecurity Framework,Federal Cyber,control_catalog,NIST,csv,1,Functions/Categories/Subcategories; current version 2.0; primary crosswalk hub alongside 800-53
+nist_800_53,NIST SP 800-53,Federal Cyber,control_catalog,NIST,oscal,1,Primary control catalog and crosswalk hub; current loaded revision Rev 5 (1196 controls)
+nist_800_53a,NIST SP 800-53A,Federal Cyber,control_catalog,NIST,oscal,0,Assessment procedures for 800-53 controls; basis for test-plan/SAP generation
+nist_800_53b,NIST SP 800-53B,Federal Cyber,guidance_reference,NIST,oscal,0,Control baselines (Low/Mod/High profiles over 800-53); drives Categorize-Select
+fips_199,FIPS 199,Federal Cyber,guidance_reference,NIST,reference,0,Security categorization (CIA impact levels); input to the CIA-triad button
+fips_200,FIPS 200,Federal Cyber,guidance_reference,NIST,reference,0,Minimum security requirements; high-water-mark baseline selection
+nist_800_37,NIST SP 800-37 (RMF),Federal Cyber,process_lifecycle,NIST,reference,0,The 7-step RMF process; see rmf framework
+nist_800_30,NIST SP 800-30 (Risk Assessment),Federal Cyber,risk_methodology,NIST,reference,0,Risk assessment methodology
+nist_800_39,NIST SP 800-39,Federal Cyber,risk_methodology,NIST,reference,0,Org-wide risk management
+nist_800_40,NIST SP 800-40 (Patch Management),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_41,NIST SP 800-41 (Firewalls),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_50,NIST SP 800-50 (Security Awareness),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_61,NIST SP 800-61 Rev 2 (Incident Response),Federal Cyber,process_lifecycle,NIST,reference,0,IR lifecycle
+nist_800_63,NIST SP 800-63 (Digital Identity),Federal Cyber,technical_standard,NIST,reference,0,IAL/AAL/FAL assurance levels
+nist_800_88,NIST SP 800-88 Rev 1 (Media Sanitization),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_115,NIST SP 800-115 (Security Testing),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_122,NIST SP 800-122 (PII Protection),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_137,NIST SP 800-137 (Continuous Monitoring),Federal Cyber,process_lifecycle,NIST,reference,0,ISCM strategy
+nist_800_145,NIST SP 800-145 (Cloud Computing),Federal Cyber,guidance_reference,NIST,reference,0,Cloud definitions
+nist_800_160_v1,NIST SP 800-160 Vol 1 (Systems Security Engineering),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_160_v2,NIST SP 800-160 Vol 2 (Cyber Resiliency),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_800_171,NIST SP 800-171,Federal Cyber,control_catalog,NIST,csv,0,CUI protection; current revision Rev 3; basis for CMMC
+nist_800_171a,NIST SP 800-171A,Federal Cyber,control_catalog,NIST,csv,0,Assessment procedures for 800-171
+nist_800_172,NIST SP 800-172,Federal Cyber,control_catalog,NIST,csv,0,Enhanced requirements (APT)
+nist_800_181,NIST SP 800-181 (NICE Workforce),Federal Cyber,guidance_reference,NIST,reference,0,Workforce role taxonomy
+nist_800_207,NIST SP 800-207 (Zero Trust Architecture),Federal Cyber,guidance_reference,NIST,reference,0,
+nist_1800_series,NIST SP 1800 Series (NCCoE),Federal Cyber,guidance_reference,NIST,reference,0,Practice guides
+rmf,Risk Management Framework,RMF,process_lifecycle,NIST,reference,0,7 steps: Prepare/Categorize/Select/Implement/Assess/Authorize/Monitor
+artifact_ssp,System Security Plan,RMF,artifact_type,NIST,reference,0,Tool OUTPUT (OSCAL SSP)
+artifact_sap,Security Assessment Plan,RMF,artifact_type,NIST,reference,0,Tool OUTPUT (OSCAL SAP)
+artifact_sar,Security Assessment Report,RMF,artifact_type,NIST,reference,0,Tool OUTPUT (OSCAL SAR)
+artifact_poam,Plan of Action & Milestones,RMF,artifact_type,NIST,reference,0,Tool OUTPUT (OSCAL POA&M)
+artifact_ato,Authorization to Operate,RMF,artifact_type,NIST,reference,0,Authorization decision artifact
+artifact_conmon,Continuous Monitoring Strategy,RMF,artifact_type,NIST,reference,0,Tool OUTPUT
+fiscam,GAO FISCAM 2024,Federal Audit,control_catalog,GAO,csv,0,Categories: SM/AC/SD/CM/CP; maps to 800-53
+gagas_yellow_book,GAGAS (Yellow Book),Federal Audit,guidance_reference,GAO,reference,0,Govt auditing standards
+omb_a_123,OMB Circular A-123,Federal Audit,regulation_law,OMB,reference,0,Internal control management
+omb_a_130,OMB Circular A-130,Federal Audit,regulation_law,OMB,reference,0,Managing info as a strategic resource
+dodi_8500_01,DoDI 8500.01,DoD,regulation_law,DoD,reference,0,Cybersecurity policy
+dodi_8510_01,DoDI 8510.01,DoD,regulation_law,DoD,reference,0,RMF for DoD IT
+dod_rmf_manual,DoD RMF Manual,DoD,process_lifecycle,DoD,reference,0,
+disa_stigs,DISA STIGs,DoD,benchmark_checklist,DISA,csv,0,Per-platform hardening; SCAP-consumable
+srgs,Security Requirements Guides,DoD,benchmark_checklist,DISA,reference,0,Technology-class requirements
+emass,eMASS,DoD,platform_tool,DoD,integration,0,RMF system of record; REST API integration target
+acas,ACAS,DoD,platform_tool,DoD,integration,0,Assured Compliance Assessment Solution (Tenable)
+hbss,HBSS,DoD,platform_tool,DoD,integration,0,Host Based Security System (legacy)
+ess,Endpoint Security Solutions,DoD,platform_tool,DoD,integration,0,ESS (HBSS successor)
+scap,SCAP,DoD,technical_standard,NIST,reference,0,Security Content Automation Protocol
+cmmc,CMMC,CMMC,maturity_model,DoD CIO,csv,0,Levels 1-3 assessed against 800-171
+dfars_7012,DFARS 252.204-7012,CMMC,regulation_law,DoD,reference,0,Safeguarding CDI; incident reporting
+dfars_7019,DFARS 252.204-7019,CMMC,regulation_law,DoD,reference,0,NIST 800-171 assessment requirement
+dfars_7020,DFARS 252.204-7020,CMMC,regulation_law,DoD,reference,0,DoD assessment access
+dfars_7021,DFARS 252.204-7021,CMMC,regulation_law,DoD,reference,0,CMMC requirement
+fisma,FISMA,Federal Law,regulation_law,Congress,reference,0,Federal Information Security Modernization Act
+fedramp,FedRAMP,Federal Law,attestation_program,GSA,oscal,0,Cloud authorization; baselines = 800-53 OSCAL profiles
+privacy_act_1974,Privacy Act of 1974,Federal Law,regulation_law,Congress,reference,0,
+e_government_act,E-Government Act,Federal Law,regulation_law,Congress,reference,0,Includes original FISMA
+clinger_cohen,Clinger-Cohen Act,Federal Law,regulation_law,Congress,reference,0,IT acquisition/management
+federal_records_act,Federal Records Act,Federal Law,regulation_law,Congress,reference,0,
+zero_trust,Zero Trust,IAM,guidance_reference,NIST/CISA,reference,0,See 800-207 and CISA ZT Maturity Model
+saml,SAML,IAM,technical_standard,OASIS,reference,0,
+oauth2,OAuth 2.0,IAM,technical_standard,IETF,reference,0,
+oidc,OpenID Connect,IAM,technical_standard,OpenID Foundation,reference,0,
+fido2,FIDO2,IAM,technical_standard,FIDO Alliance,reference,0,WebAuthn/CTAP
+pki,PKI,IAM,technical_standard,X.509,reference,0,
+rbac,RBAC,IAM,technical_standard,NIST,reference,0,Role-based access model
+abac,ABAC,IAM,technical_standard,NIST,reference,0,Attribute-based access model
+pbac,PBAC,IAM,technical_standard,Industry,reference,0,Policy-based access model
+pam,Privileged Access Management,IAM,technical_standard,Industry,reference,0,Capability area
+pim,Privileged Identity Management,IAM,technical_standard,Industry,reference,0,Capability area
+aws_waf,AWS Well-Architected Framework,Cloud,guidance_reference,AWS,reference,0,Security pillar
+aws_sra,AWS Security Reference Architecture,Cloud,guidance_reference,AWS,reference,0,
+azure_caf,Microsoft Cloud Adoption Framework,Cloud,guidance_reference,Microsoft,reference,0,
+azure_landing_zones,Azure Landing Zones,Cloud,guidance_reference,Microsoft,reference,0,
+ms_security_benchmark,Microsoft Cloud Security Benchmark,Cloud,benchmark_checklist,Microsoft,csv,0,Maps to 800-53/CIS
+gcp_security_foundations,Google Cloud Security Foundations Blueprint,Cloud,guidance_reference,Google,reference,0,
+csa_ccm,CSA Cloud Controls Matrix,Cloud,control_catalog,CSA,csv,0,Maps to 800-53/ISO/PCI
+csa_caiq,CSA CAIQ,Cloud,control_catalog,CSA,csv,0,Questionnaire aligned to CCM
+csa_star,CSA STAR Registry,Cloud,attestation_program,CSA,reference,0,
+iso_27001,ISO/IEC 27001,International,control_catalog,ISO,csv,0,ISMS; Annex A controls; certifiable
+iso_27002,ISO/IEC 27002,International,control_catalog,ISO,csv,0,Control implementation guidance
+iso_27005,ISO/IEC 27005,International,risk_methodology,ISO,reference,0,InfoSec risk management
+iso_27017,ISO/IEC 27017,International,control_catalog,ISO,csv,0,Cloud controls
+iso_27018,ISO/IEC 27018,International,control_catalog,ISO,csv,0,PII in public cloud
+iso_27035,ISO/IEC 27035,International,process_lifecycle,ISO,reference,0,Incident management
+iso_27701,ISO/IEC 27701,International,control_catalog,ISO,csv,0,Privacy extension to 27001
+iso_22301,ISO/IEC 22301,International,control_catalog,ISO,csv,0,Business continuity management
+iso_31000,ISO 31000,International,risk_methodology,ISO,reference,0,Enterprise risk management
+iso_38500,ISO 38500,International,guidance_reference,ISO,reference,0,IT governance
+iso_42001,ISO/IEC 42001,International,control_catalog,ISO,csv,0,AI management system
+cobit_2019,COBIT 2019,Governance,control_catalog,ISACA,csv,0,IT governance objectives
+itil_4,ITIL 4,Governance,process_lifecycle,Axelos,reference,0,Service management practices (process_library)
+togaf,TOGAF,Governance,architecture_framework,Open Group,reference,0,
+zachman,Zachman Framework,Governance,architecture_framework,Zachman,reference,0,
+feaf,FEAF,Governance,architecture_framework,OMB,reference,0,Federal EA
+dodaf,DoDAF,Governance,architecture_framework,DoD,reference,0,
+uaf,UAF,Governance,architecture_framework,OMG,reference,0,Unified Architecture Framework
+gdpr,GDPR,Privacy,regulation_law,EU,reference,0,
+ccpa,CCPA,Privacy,regulation_law,California,reference,0,
+cpra,CPRA,Privacy,regulation_law,California,reference,0,
+hipaa,HIPAA,Privacy,regulation_law,HHS,reference,0,
+hipaa_security_rule,HIPAA Security Rule,Privacy,control_catalog,HHS,csv,0,Admin/physical/technical safeguards
+hitech,HITECH,Privacy,regulation_law,HHS,reference,0,
+glba,GLBA,Privacy,regulation_law,Congress,reference,0,
+ferpa,FERPA,Privacy,regulation_law,Dept of Ed,reference,0,
+coppa,COPPA,Privacy,regulation_law,FTC,reference,0,
+sox,SOX,Privacy,regulation_law,Congress,reference,0,Sarbanes-Oxley (IT general controls)
+mitre_attack,MITRE ATT&CK,SecOps,threat_knowledge_base,MITRE,taxonomy,0,Tactics/techniques; map detections+controls
+mitre_d3fend,MITRE D3FEND,SecOps,threat_knowledge_base,MITRE,taxonomy,0,Defensive countermeasures
+mitre_capec,MITRE CAPEC,SecOps,threat_knowledge_base,MITRE,taxonomy,0,Attack patterns
+mitre_cwe,MITRE CWE,SecOps,threat_knowledge_base,MITRE,taxonomy,0,Weakness enumeration
+mitre_cve,MITRE CVE,SecOps,vuln_intel_feed,MITRE,feed,0,Vulnerability enumeration
+mitre_atlas,MITRE ATLAS,SecOps,threat_knowledge_base,MITRE,taxonomy,0,Adversarial ML threats
+cyber_kill_chain,Cyber Kill Chain,SecOps,threat_knowledge_base,Lockheed Martin,reference,0,
+diamond_model,Diamond Model,SecOps,threat_knowledge_base,Industry,reference,0,Intrusion analysis
+stix,STIX,SecOps,technical_standard,OASIS,reference,0,Threat intel format
+taxii,TAXII,SecOps,technical_standard,OASIS,reference,0,Threat intel transport
+owasp_top10,OWASP Top 10,SecSDLC,guidance_reference,OWASP,reference,0,Web app risk awareness
+owasp_api_top10,OWASP API Security Top 10,SecSDLC,guidance_reference,OWASP,reference,0,
+owasp_asvs,OWASP ASVS,SecSDLC,control_catalog,OWASP,csv,0,App security verification standard
+owasp_masvs,OWASP MASVS,SecSDLC,control_catalog,OWASP,csv,0,Mobile app security standard
+owasp_samm,OWASP SAMM,SecSDLC,maturity_model,OWASP,reference,0,Software assurance maturity
+bsimm,BSIMM,SecSDLC,maturity_model,Synopsys,reference,0,
+secure_sdlc,Secure SDLC,SecSDLC,process_lifecycle,Industry,reference,0,
+devsecops,DevSecOps,SecSDLC,process_lifecycle,Industry,reference,0,
+nist_ssdf,NIST SSDF (800-218),SecSDLC,control_catalog,NIST,csv,0,Secure software dev practices
+isa_iec_62443,ISA/IEC 62443,OT/ICS,control_catalog,ISA/IEC,csv,0,Industrial automation security
+purdue_model,Purdue Model,OT/ICS,architecture_framework,ISA,reference,0,ICS network reference model
+nerc_cip,NERC CIP,OT/ICS,control_catalog,NERC,csv,0,Bulk electric system standards
+iec_61508,IEC 61508,OT/ICS,guidance_reference,IEC,reference,0,Functional safety
+iec_61850,IEC 61850,OT/ICS,technical_standard,IEC,reference,0,Substation automation
+cfats,CFATS,OT/ICS,regulation_law,DHS,reference,0,Chemical facility security
+pci_dss_v4,PCI DSS v4.0,Financial,control_catalog,PCI SSC,csv,0,Cardholder data protection
+ffiec_cat,FFIEC CAT,Financial,maturity_model,FFIEC,reference,0,Cybersecurity assessment tool
+basel_iii,Basel III,Financial,regulation_law,BCBS,reference,0,Operational risk
+nist_ai_rmf,NIST AI RMF,AI,control_catalog,NIST,csv,0,Govern/Map/Measure/Manage functions
+owasp_llm_top10,OWASP Top 10 for LLM Applications,AI,guidance_reference,OWASP,reference,0,
+fair,FAIR,ERM,risk_methodology,FAIR Institute,reference,0,Quantitative risk analysis
+octave,OCTAVE,ERM,risk_methodology,CMU SEI,reference,0,
+coso_erm,COSO ERM,ERM,risk_methodology,COSO,reference,0,
+cvss,CVSS,Vuln Mgmt,vuln_intel_feed,FIRST,feed,0,Vulnerability scoring
+cpe,CPE,Vuln Mgmt,vuln_intel_feed,NIST,feed,0,Platform enumeration
+epss,EPSS,Vuln Mgmt,vuln_intel_feed,FIRST,feed,0,Exploit prediction scoring
+cisa_kev,CISA Known Exploited Vulnerabilities,Vuln Mgmt,vuln_intel_feed,CISA,feed,0,KEV catalog
+nist_800_86,NIST SP 800-86 (Forensics),Forensics,guidance_reference,NIST,reference,0,Integrating forensics into IR
+iso_27037,ISO 27037,Forensics,guidance_reference,ISO,reference,0,Digital evidence handling
+iso_27041,ISO 27041,Forensics,guidance_reference,ISO,reference,0,Investigation assurance
+iso_27042,ISO 27042,Forensics,guidance_reference,ISO,reference,0,Evidence analysis
+iso_27043,ISO 27043,Forensics,guidance_reference,ISO,reference,0,Investigation principles
+nispom,NISPOM,Physical/Personnel,regulation_law,DoD,reference,0,32 CFR Part 117
+icd_503,ICD 503,Physical/Personnel,guidance_reference,ODNI,reference,0,IC IT systems RMF
+icd_705,ICD 705,Physical/Personnel,guidance_reference,ODNI,reference,0,SCIF construction
+cnssi_1253,CNSSI 1253,Physical/Personnel,control_catalog,CNSS,csv,0,Security categorization/overlays for NSS
+cpted,CPTED,Physical/Personnel,guidance_reference,Industry,reference,0,Crime prevention through environmental design
+agile,Agile,Project Delivery,process_lifecycle,Agile Alliance,reference,0,
+scrum,Scrum,Project Delivery,process_lifecycle,Scrum.org,reference,0,
+safe,SAFe,Project Delivery,process_lifecycle,Scaled Agile,reference,0,
+kanban,Kanban,Project Delivery,process_lifecycle,Industry,reference,0,
+lean,Lean,Project Delivery,process_lifecycle,Industry,reference,0,
+pmbok,PMBOK,Project Delivery,process_lifecycle,PMI,reference,0,
+prince2,PRINCE2,Project Delivery,process_lifecycle,Axelos,reference,0,
+cmmi,CMMI,Maturity,maturity_model,ISACA,reference,0,Capability maturity model integration
+nist_csf_tiers,NIST CSF Implementation Tiers,Maturity,maturity_model,NIST,reference,0,
+cis_igs,CIS Controls Implementation Groups,Maturity,maturity_model,CIS,reference,0,IG1/IG2/IG3
+cis_controls_v8,CIS Critical Security Controls v8,Benchmarks,control_catalog,CIS,csv,0,18 controls; maps to 800-53
+cis_benchmarks,CIS Benchmarks,Benchmarks,benchmark_checklist,CIS,csv,0,Per-platform hardening
+scap_baselines,SCAP Baselines,Benchmarks,benchmark_checklist,NIST,reference,0,
+scrm,Supply Chain Risk Management (C-SCRM 800-161),Supply Chain,process_lifecycle,NIST,reference,0,
+eo_14028,Executive Order 14028,Supply Chain,regulation_law,White House,reference,0,Improving the Nation's Cybersecurity
+sbom,SBOM,Supply Chain,technical_standard,NTIA/CISA,reference,0,Software Bill of Materials
+slsa,SLSA,Supply Chain,technical_standard,OpenSSF,reference,0,Supply chain levels for software artifacts
+in_toto,in-toto,Supply Chain,technical_standard,CNCF,reference,0,Supply chain integrity
+soc1,SOC 1,Compliance Programs,attestation_program,AICPA,reference,0,ICFR
+soc2,SOC 2,Compliance Programs,attestation_program,AICPA,reference,0,Trust Services Criteria
+soc3,SOC 3,Compliance Programs,attestation_program,AICPA,reference,0,
+hitrust_csf,HITRUST CSF,Compliance Programs,control_catalog,HITRUST,csv,0,Harmonized control framework; certifiable

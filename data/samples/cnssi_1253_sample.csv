@@ -1,0 +1,12 @@
+dimension,impact,control_id
+C,low,ac-2
+C,moderate,ac-2
+C,moderate,ac-2.1
+C,high,ac-2
+C,high,ac-2.1
+I,low,au-2
+I,moderate,au-2
+I,high,au-2
+A,low,au-2
+A,moderate,au-2
+A,high,au-2

@@ -1,0 +1,16 @@
+# Built/downloaded data — fetched at runtime, never committed
+*.db
+*.db-wal
+*.db-shm
+data/catalogs/
+data/baselines/
+data/cci/
+data/stig/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store

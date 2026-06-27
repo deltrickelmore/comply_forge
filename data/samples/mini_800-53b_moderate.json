@@ -1,0 +1,14 @@
+{
+  "profile": {
+    "uuid": "00000000-0000-0000-0000-00005303bmod",
+    "metadata": {"title": "NIST SP 800-53B MODERATE baseline (sample subset)"},
+    "imports": [
+      {
+        "href": "#mini_800-53_rev5",
+        "include-controls": [
+          {"with-ids": ["ac-2", "ac-2.1", "au-2"]}
+        ]
+      }
+    ]
+  }
+}

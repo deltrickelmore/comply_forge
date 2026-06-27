@@ -1,0 +1,4 @@
+control_id,family,title,statement,guidance
+sm-1,SM,Security Management Program,"The entity establishes and maintains an entity-wide information security management program, including risk assessments, policies, and oversight.","FISCAM general control category. Maps broadly to NIST PM/RA/PL families."
+ac-1,AC,Access Control,"The entity limits and monitors logical and physical access to information system resources to authorized individuals.","FISCAM access control category; aligns with NIST AC family."
+au-1,AU,Audit and Monitoring,"The entity logs, monitors, and reviews security-relevant events and audit trails.","Aligns with NIST AU family."

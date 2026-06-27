@@ -1,0 +1,5 @@
+src_framework,src_control,dst_framework,dst_control,relation,authority,note
+fiscam,ac-1,nist_800_53,ac-2,superset,GAO,"FISCAM AC category broadly covers NIST account mgmt"
+fiscam,au-1,nist_800_53,au-2,superset,GAO,"FISCAM audit category covers NIST event logging"
+nist_800_53,ac-2,nist_800_171,3.1.1,equivalent,NIST,"800-53 ac-2 <-> 800-171 3.1.1 limit system access"
+nist_800_53,au-2,nist_800_171,3.3.1,intersects,NIST,"event logging partial overlap with audit record creation"

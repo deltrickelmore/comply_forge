@@ -1,0 +1,65 @@
+{
+  "catalog": {
+    "uuid": "00000000-0000-0000-0000-0000005305r5",
+    "metadata": {
+      "title": "NIST SP 800-53 Rev 5 (sample subset)",
+      "published": "2020-12-10T00:00:00Z",
+      "version": "5.1.1"
+    },
+    "groups": [
+      {
+        "id": "ac",
+        "class": "family",
+        "title": "Access Control",
+        "controls": [
+          {
+            "id": "ac-2",
+            "title": "Account Management",
+            "params": [
+              {"id": "ac-2_prm_1", "label": "account types"}
+            ],
+            "parts": [
+              {
+                "id": "ac-2_smt",
+                "name": "statement",
+                "prose": "Define and document the types of accounts allowed and prohibited; assign account managers; require approvals for requests to create accounts; and monitor the use of accounts."
+              },
+              {
+                "id": "ac-2_gdn",
+                "name": "guidance",
+                "prose": "Account management includes the identification of account types, establishment of conditions for group membership, and assignment of associated authorizations."
+              }
+            ],
+            "controls": [
+              {
+                "id": "ac-2.1",
+                "title": "Account Management | Automated System Account Management",
+                "parts": [
+                  {"id": "ac-2.1_smt", "name": "statement",
+                   "prose": "Support the management of system accounts using automated mechanisms."}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "au",
+        "class": "family",
+        "title": "Audit and Accountability",
+        "controls": [
+          {
+            "id": "au-2",
+            "title": "Event Logging",
+            "parts": [
+              {"id": "au-2_smt", "name": "statement",
+               "prose": "Identify the types of events that the system is capable of logging in support of the audit function; and coordinate the event logging function with other organizational entities."},
+              {"id": "au-2_gdn", "name": "guidance",
+               "prose": "An event is an observable occurrence in a system. The types of events that require logging are those events significant to the security of systems."}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

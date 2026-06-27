@@ -1,0 +1,6 @@
+[server]
+maxUploadSize = 200   # MB — large enough for STIG zips / templates
+
+[theme]
+primaryColor = "#1f4e79"
+base = "light"

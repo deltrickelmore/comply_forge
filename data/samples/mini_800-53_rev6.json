@@ -1,0 +1,54 @@
+{
+  "catalog": {
+    "uuid": "00000000-0000-0000-0000-0000005306r6",
+    "metadata": {
+      "title": "NIST SP 800-53 Rev 6 (sample subset, fictional for diff demo)",
+      "published": "2026-01-15T00:00:00Z",
+      "version": "6.0.0"
+    },
+    "groups": [
+      {
+        "id": "ac",
+        "class": "family",
+        "title": "Access Control",
+        "controls": [
+          {
+            "id": "ac-2",
+            "title": "Account Management",
+            "parts": [
+              {"id": "ac-2_smt", "name": "statement",
+               "prose": "MODIFIED IN REV 6: Define and document account types; assign account managers; require approvals; monitor use; and review accounts at an organization-defined frequency using automated mechanisms where feasible."},
+              {"id": "ac-2_gdn", "name": "guidance",
+               "prose": "Account management includes account type identification, group membership conditions, and authorization assignment."}
+            ],
+            "controls": [
+              {
+                "id": "ac-2.1",
+                "title": "Account Management | Automated System Account Management",
+                "parts": [
+                  {"id": "ac-2.1_smt", "name": "statement",
+                   "prose": "Support the management of system accounts using automated mechanisms."}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ia",
+        "class": "family",
+        "title": "Identification and Authentication",
+        "controls": [
+          {
+            "id": "ia-2",
+            "title": "Identification and Authentication (Organizational Users)",
+            "parts": [
+              {"id": "ia-2_smt", "name": "statement",
+               "prose": "ADDED IN REV 6 (sample): Uniquely identify and authenticate organizational users and associate that identity with processes acting on their behalf."}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
