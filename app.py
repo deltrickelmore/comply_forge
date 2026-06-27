@@ -71,6 +71,7 @@ def _current_catalog(framework_id="nist_800_53") -> str | None:
 # --------------------------------------------------------------------------- #
 if PAGE == "Dashboard":
     import pandas as pd
+    import altair as alt
     c = conn
     n = lambda s: c.execute(s).fetchone()[0]
     controls = n("SELECT COUNT(*) FROM controls")
@@ -84,6 +85,11 @@ if PAGE == "Dashboard":
 
     st.markdown("""
     <style>
+      .cf-head{display:flex;align-items:center;gap:14px;margin:2px 0 18px}
+      .cf-logo{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+               font-size:24px;background:linear-gradient(135deg,#4f46e5,#22d3ee);box-shadow:0 6px 18px rgba(79,70,229,.45)}
+      .cf-title{font-size:22px;font-weight:800;color:#f3f5fb;line-height:1}
+      .cf-tag{font-size:12px;color:#8b93a7;margin-top:3px}
       .cf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:6px 0 20px}
       .cf-card{border-radius:16px;padding:16px 18px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.35)}
       .cf-card .ico{font-size:18px;opacity:.92}
@@ -98,9 +104,18 @@ if PAGE == "Dashboard":
       .pill{padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700}
       .ok{background:#15331f;color:#56d98a}.no{background:#3a1d1d;color:#f87171}
       .warn{background:#3a2c12;color:#f5b13d}
+      .cf-big{font-size:26px;font-weight:800;color:#eef1f8}
+      .bar{height:9px;background:#243049;border-radius:999px;margin:9px 0 5px;overflow:hidden}
+      .barfill{height:9px;background:linear-gradient(90deg,#7c5cff,#22d3ee);border-radius:999px}
+      .act{display:flex;gap:9px;align-items:center;padding:6px 0;font-size:12.5px;color:#cdd5e6}
+      .act .dot{width:7px;height:7px;border-radius:50%;background:#7c5cff;flex:none}
+      .act .t{color:#7f8aa3;margin-left:auto;font-size:11px}
     </style>""", unsafe_allow_html=True)
 
-    st.markdown("### 🛡️ ComplyForge — Compliance Dashboard")
+    st.markdown('<div class="cf-head"><div class="cf-logo">🛡️</div>'
+                '<div><div class="cf-title">ComplyForge</div>'
+                '<div class="cf-tag">RMF authorization & continuous-monitoring workbench · '
+                'DRAFT outputs require human review</div></div></div>', unsafe_allow_html=True)
 
     def card(grad, ico, num, lbl, sub):
         return (f'<div class="cf-card" style="background:linear-gradient(135deg,{grad})">'
@@ -147,14 +162,77 @@ if PAGE == "Dashboard":
                     + row("DISA CCIs", ccis > 0, f"{ccis:,}")
                     + row("STIGs", stigs > 0, f"{stigs} loaded")
                     + "</div>", unsafe_allow_html=True)
-        rqp = "no" if review else "ok"
-        st.markdown('<div class="cf-panel"><h4>✅ Authorization status</h4>'
-                    + f'<div class="cf-row"><span>Systems</span><span class="pill ok">{systems}</span></div>'
-                    + f'<div class="cf-row"><span>Awaiting review</span>'
-                      f'<span class="pill {rqp}">{review}</span></div>'
-                    + f'<div class="cf-row"><span>LLM provider</span>'
-                      f'<span class="pill {"ok" if prov.name!="fake" else "warn"}">{prov.name}</span></div>'
-                    + "</div>", unsafe_allow_html=True)
+        # recent activity
+        acts = c.execute(
+            """SELECT label, ts FROM (
+                 SELECT 'Control '||upper(control_id) label, updated_at ts
+                   FROM implemented_requirements WHERE updated_at IS NOT NULL
+                 UNION ALL SELECT 'STIG: '||title, loaded_at FROM stigs
+                 UNION ALL SELECT 'System: '||name, created_at FROM systems
+               ) WHERE ts IS NOT NULL ORDER BY ts DESC LIMIT 6""").fetchall()
+        if acts:
+            rows = "".join(f'<div class="act"><span class="dot"></span>'
+                           f'<span>{a[0][:34]}</span><span class="t">{(a[1] or "")[:10]}</span></div>'
+                           for a in acts)
+            st.markdown(f'<div class="cf-panel"><h4>🕑 Recent activity</h4>{rows}</div>',
+                        unsafe_allow_html=True)
+
+    # ---- System focus: coverage + posture + STIG findings ----
+    sys_rows = c.execute("SELECT system_id, name, impact_level FROM systems ORDER BY name").fetchall()
+    if sys_rows:
+        st.markdown("#### System posture")
+        names = {r["name"]: r for r in sys_rows}
+        pick = st.selectbox("System", list(names), label_visibility="collapsed")
+        srow = names[pick]
+        sid, impact = srow["system_id"], (srow["impact_level"] or "moderate").lower()
+        bid = f"nist_800_53b@{impact}"
+        total = n(f"SELECT COUNT(*) FROM baseline_controls WHERE baseline_id='{bid}'") or 0
+        documented = c.execute(
+            """SELECT COUNT(DISTINCT ir.control_id) FROM implemented_requirements ir
+                 JOIN baseline_controls b ON b.control_id=ir.control_id AND b.baseline_id=?
+                WHERE ir.system_id=?""", (bid, sid)).fetchone()[0]
+        satisfied = c.execute(
+            """SELECT COUNT(*) FROM implemented_requirements
+                WHERE system_id=? AND status='implemented' AND needs_review=0""", (sid,)).fetchone()[0]
+        other = c.execute("SELECT COUNT(*) FROM implemented_requirements WHERE system_id=?",
+                          (sid,)).fetchone()[0] - satisfied
+        open_findings = 0
+        try:
+            from comply_forge import stig as _stig
+            open_findings = len(_stig.open_findings(conn, sid))
+        except Exception:
+            pass
+
+        k1, k2, k3 = st.columns(3, gap="large")
+        with k1:
+            pct = int(round(100 * documented / total)) if total else 0
+            st.markdown(
+                f'<div class="cf-panel"><h4>🎯 Baseline coverage ({impact.title()})</h4>'
+                f'<div class="cf-big">{documented}/{total}</div>'
+                f'<div class="bar"><div class="barfill" style="width:{pct}%"></div></div>'
+                f'<div class="cf-tag">{pct}% of the {impact.title()} baseline documented</div></div>',
+                unsafe_allow_html=True)
+        with k2:
+            st.markdown('<div class="cf-panel"><h4>✅ Assessment posture</h4></div>', unsafe_allow_html=True)
+            if satisfied or other:
+                dfp = pd.DataFrame({"result": ["Satisfied", "Other-than-satisfied"],
+                                    "n": [satisfied, other]})
+                donut = (alt.Chart(dfp).mark_arc(innerRadius=42).encode(
+                    theta="n:Q",
+                    color=alt.Color("result:N", scale=alt.Scale(range=["#56d98a", "#f5b13d"]),
+                                    legend=alt.Legend(orient="bottom", title=None)))
+                    .properties(height=190))
+                st.altair_chart(donut, width="stretch")
+            else:
+                st.caption("No control responses yet.")
+        with k3:
+            st.markdown(
+                f'<div class="cf-panel"><h4>🔧 Open STIG findings</h4>'
+                f'<div class="cf-big">{open_findings}</div>'
+                f'<div class="cf-tag">Open items flow into the POA&amp;M and SAR</div>'
+                f'<div class="cf-row" style="margin-top:8px"><span>Applied STIGs</span>'
+                f'<span class="pill ok">{len(_stig.assigned_stigs(conn, sid)) if stigs else 0}</span></div></div>',
+                unsafe_allow_html=True)
 
     with st.expander("⚙️ Initialize / update reference data", expanded=controls == 0):
         from comply_forge import bootstrap as _bs
