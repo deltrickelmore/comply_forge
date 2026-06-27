@@ -158,7 +158,7 @@ def validate_oscal(ssp: dict) -> tuple[bool, str]:
 
 def write_word_ssp(conn, *, system_id: str, catalog_version_id: str,
                    path: str | Path, baseline_impact: str = "moderate",
-                   org_name: str = "") -> Path:
+                   prepared_by: str = "", prepared_for: str = "", brand_color: str = "") -> Path:
     import docx
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -170,14 +170,14 @@ def write_word_ssp(conn, *, system_id: str, catalog_version_id: str,
     doc = docx.Document()
     doc.styles["Normal"].font.name = "Arial"; doc.styles["Normal"].font.size = Pt(11)
 
+    from ._docx_util import color_run, prepared_block
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = t.add_run(f"System Security Plan\n{sysrow['name']}"); r.bold = True; r.font.size = Pt(18)
+    color_run(r, brand_color)
     sub = doc.add_paragraph(); sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub.add_run(f"Impact Level: {impact.title()}   ·   Version 0.1 (DRAFT — needs review)\n"
                 f"{_dt.date.today():%d %b %Y}")
-    if org_name:
-        o = doc.add_paragraph(); o.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        o.add_run(f"Prepared for: {org_name}").italic = True
+    prepared_block(doc, prepared_by, prepared_for)
     doc.add_page_break()
 
     doc.add_paragraph("1. System Characteristics", style="Heading 1")

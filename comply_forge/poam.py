@@ -105,10 +105,12 @@ def write_oscal_poam(poam: dict, path: str | Path) -> Path:
 
 def write_word_poam(conn, *, system_id: str, catalog_version_id: str,
                     path: str | Path, findings: list[dict] | None = None,
-                    include_stig: bool = True, org_name: str = "") -> Path:
+                    include_stig: bool = True, prepared_by: str = "",
+                    prepared_for: str = "", brand_color: str = "") -> Path:
     import docx
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from ._docx_util import color_run, prepared_block
 
     sysrow = conn.execute("SELECT name FROM systems WHERE system_id=?",
                           (system_id,)).fetchone()
@@ -118,10 +120,10 @@ def write_word_poam(conn, *, system_id: str, catalog_version_id: str,
     doc.styles["Normal"].font.name = "Arial"; doc.styles["Normal"].font.size = Pt(10)
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = t.add_run(f"Plan of Action and Milestones (POA&M)\n{sysrow['name'] if sysrow else system_id}")
-    r.bold = True; r.font.size = Pt(16)
+    r.bold = True; r.font.size = Pt(16); color_run(r, brand_color)
     doc.add_paragraph(f"Version 0.1 (DRAFT)   ·   {_dt.date.today():%d %b %Y}   ·   "
-                      f"{len(src)} open item(s)"
-                      + (f"   ·   Prepared for: {org_name}" if org_name else ""))
+                      f"{len(src)} open item(s)")
+    prepared_block(doc, prepared_by, prepared_for)
 
     cols = ("Item", "Control", "Weakness / Deficiency", "Status",
             "Scheduled Completion", "POC")

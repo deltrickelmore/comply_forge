@@ -108,19 +108,20 @@ def write_oscal_sar(sar: dict, path: str | Path) -> Path:
 
 
 def write_word_sar(conn, *, system_id: str, catalog_version_id: str, path: str | Path,
-                   org_name: str = "") -> Path:
+                   prepared_by: str = "", prepared_for: str = "", brand_color: str = "") -> Path:
     import docx
     from docx.shared import Pt
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from ._docx_util import color_run, prepared_block
 
     a = assess(conn, system_id, catalog_version_id)
     doc = docx.Document()
     doc.styles["Normal"].font.name = "Arial"; doc.styles["Normal"].font.size = Pt(10)
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = t.add_run(f"Security Assessment Report\n{a['system_name']}")
-    r.bold = True; r.font.size = Pt(16)
-    doc.add_paragraph(f"Version 0.1 (DRAFT)   ·   {_dt.date.today():%d %b %Y}"
-                      + (f"   ·   Prepared for: {org_name}" if org_name else ""))
+    r.bold = True; r.font.size = Pt(16); color_run(r, brand_color)
+    doc.add_paragraph(f"Version 0.1 (DRAFT)   ·   {_dt.date.today():%d %b %Y}")
+    prepared_block(doc, prepared_by, prepared_for)
 
     doc.add_paragraph("1. Executive Summary", style="Heading 1")
     doc.add_paragraph(f"{a['assessed']} controls assessed. {a['satisfied']} satisfied; "

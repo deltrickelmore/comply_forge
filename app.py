@@ -445,6 +445,8 @@ elif PAGE == "Authorization Package":
     else:
         sysmap = {n: sid for sid, n in sys_rows}
         sysname = st.selectbox("System", list(sysmap))
+        apkg_agency = st.text_input("Agency / company (document is for)", value="",
+                                    placeholder="client agency — printed as 'Prepared for'")
         sid = sysmap[sysname]
         total = conn.execute("SELECT COUNT(*) FROM implemented_requirements "
                              "WHERE system_id=? AND catalog_version_id=?", (sid, cv)).fetchone()[0]
@@ -471,7 +473,7 @@ elif PAGE == "Authorization Package":
         if b.button("Generate Word SSP", key="ssp_word"):
             out = _ssp.write_word_ssp(conn, system_id=sid, catalog_version_id=cv,
                                       path=Path(tempfile.mkdtemp()) / f"{sysname}_SSP.docx",
-                                      org_name=BRAND["name"])
+                                      prepared_by=BRAND["name"], prepared_for=apkg_agency, brand_color=BRAND["brand_color"])
             b.download_button("⬇ SSP (.docx)", _read_bytes(out), file_name=out.name, key="dl_ssp_w",
                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -490,7 +492,7 @@ elif PAGE == "Authorization Package":
         if f2.button("Generate Word SAR", key="sar_word"):
             out = _sar.write_word_sar(conn, system_id=sid, catalog_version_id=cv,
                                       path=Path(tempfile.mkdtemp()) / f"{sysname}_SAR.docx",
-                                      org_name=BRAND["name"])
+                                      prepared_by=BRAND["name"], prepared_for=apkg_agency, brand_color=BRAND["brand_color"])
             f2.download_button("⬇ SAR (.docx)", _read_bytes(out), file_name=out.name, key="dl_sar_w",
                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
@@ -507,7 +509,7 @@ elif PAGE == "Authorization Package":
         if e.button("Generate Word POA&M", key="poam_word"):
             out = _poam.write_word_poam(conn, system_id=sid, catalog_version_id=cv,
                                         path=Path(tempfile.mkdtemp()) / f"{sysname}_POAM.docx",
-                                        org_name=BRAND["name"])
+                                        prepared_by=BRAND["name"], prepared_for=apkg_agency, brand_color=BRAND["brand_color"])
             e.download_button("⬇ POA&M (.docx)", _read_bytes(out), file_name=out.name, key="dl_poam_w",
                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 

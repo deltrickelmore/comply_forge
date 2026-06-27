@@ -164,10 +164,12 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
                          baseline_id: str | None = None,
                          provider: LLMProvider | None = None,
                          out_path: str | Path | None = None,
-                         template_path: str | Path | None = None) -> Path:
+                         template_path: str | Path | None = None,
+                         prepared_by: str = "", brand_color: str = "") -> Path:
     import docx
     from docx.shared import Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from ._docx_util import color_run, prepared_block
 
     provider = provider or get_provider()
     profile = profile or SystemProfile()
@@ -203,14 +205,12 @@ def generate_family_plan(conn, *, family: str, profile: SystemProfile | None = N
         title_txt = f"{profile.system_long_name} ({profile.system_name})"
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = t.add_run(title_txt)
-    run.bold = True; run.font.size = Pt(18)
+    run.bold = True; run.font.size = Pt(18); color_run(run, brand_color)
     sub = doc.add_paragraph(); sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r2 = sub.add_run(f"Security Assessment and Authorization Plan\n"
                      f"{fam_title} ({family.upper()}) Control Family")
     r2.bold = True; r2.font.size = Pt(14)
-    if profile.agency:
-        a = doc.add_paragraph(); a.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        a.add_run(f"Prepared for: {profile.agency}").bold = True
+    prepared_block(doc, prepared_by, profile.agency)
     meta = doc.add_paragraph(); meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     meta.add_run(f"Version 1.0 (DRAFT — needs review)\n{_dt.date.today():%d %b %Y}")
 
