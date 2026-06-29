@@ -236,6 +236,29 @@ if PAGE == "Dashboard":
             st.markdown(f'<div class="cf-panel"><h4>🕑 Recent activity</h4>{rows}</div>',
                         unsafe_allow_html=True)
 
+    # ---- Portfolio: posture across every system ----
+    from comply_forge import posture as _pos
+    folio = _pos.portfolio(conn, TENANT)
+    if folio:
+        st.markdown("#### Portfolio posture")
+        pf = pd.DataFrame([{
+            "System": p["name"], "Impact": p["impact"].title(),
+            "Coverage %": p["coverage_pct"],
+            "Documented": f"{p['documented']}/{p['baseline_total']}",
+            "Satisfied": p["satisfied"], "Needs review": p["needs_review"],
+            "Open findings": p["open_findings"]} for p in folio])
+        pcol, ccol = st.columns([1, 1], gap="large")
+        with pcol:
+            st.dataframe(pf, width="stretch", hide_index=True)
+        with ccol:
+            chart_df = pd.DataFrame({"System": [p["name"] for p in folio],
+                                     "Coverage %": [p["coverage_pct"] for p in folio]})
+            bar = (alt.Chart(chart_df).mark_bar(color="#7c5cff").encode(
+                x=alt.X("Coverage %:Q", scale=alt.Scale(domain=[0, 100])),
+                y=alt.Y("System:N", sort="-x", title=None),
+                tooltip=["System", "Coverage %"]).properties(height=max(120, 34 * len(folio))))
+            st.altair_chart(bar, width="stretch")
+
     # ---- System focus: coverage + posture + STIG findings ----
     sys_rows = c.execute("SELECT system_id, name, impact_level FROM systems WHERE tenant_id=? "
                          "ORDER BY name", (TENANT,)).fetchall()
@@ -293,6 +316,22 @@ if PAGE == "Dashboard":
                 f'<div class="cf-row" style="margin-top:8px"><span>Applied STIGs</span>'
                 f'<span class="pill ok">{len(_stig.assigned_stigs(conn, sid)) if stigs else 0}</span></div></div>',
                 unsafe_allow_html=True)
+
+        fam_cov = _pos.coverage_by_family(conn, sid)
+        if fam_cov:
+            st.markdown("#### Baseline coverage by control family")
+            fdf = pd.DataFrame([{"family": f["family"], "documented": f["documented"],
+                                 "gap": f["in_baseline"] - f["documented"]} for f in fam_cov])
+            fdf = fdf.melt("family", var_name="state", value_name="controls")
+            fam_chart = (alt.Chart(fdf).mark_bar().encode(
+                x=alt.X("controls:Q", title="controls"),
+                y=alt.Y("family:N", sort="-x", title=None),
+                color=alt.Color("state:N", scale=alt.Scale(
+                    domain=["documented", "gap"], range=["#56d98a", "#3a2c12"]),
+                    legend=alt.Legend(orient="bottom", title=None)),
+                tooltip=["family", "state", "controls"])
+                .properties(height=max(150, 22 * len(fam_cov))))
+            st.altair_chart(fam_chart, width="stretch")
 
     with st.expander("⚙️ Initialize / update reference data", expanded=controls == 0):
         from comply_forge import bootstrap as _bs
