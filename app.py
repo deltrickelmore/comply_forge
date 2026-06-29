@@ -691,6 +691,36 @@ elif PAGE == "Authorization Package":
                     except _em.EmassError as e:
                         st.error(str(e))
 
+        with st.expander("🔌 Push to Xacta / Archer (REST API)"):
+            from comply_forge import grc_push as _gp
+            tgt = st.selectbox("Target", list(_gp.TARGETS), key="gp_tgt")
+            gconf = _gp.is_configured(tgt)
+            if gconf:
+                st.success(f"{tgt} configured from environment.")
+            else:
+                envhint = ("XACTA_URL + XACTA_API_TOKEN" if tgt == "Xacta"
+                           else "ARCHER_URL + ARCHER_SESSION_TOKEN")
+                st.info(f"{tgt} not configured. Set {envhint} to enable live push. "
+                        "Dry-run preview works without credentials.")
+            gclient = _gp.client_for(tgt)
+            if st.button("Build payload (dry run)", key="gp_dry"):
+                res = gclient.push(conn, sid, cv, dry_run=True)
+                st.caption(f"{res['target']} {res['endpoint']} — {res['count']} item(s)")
+                st.json(res["payload"][:5])
+                if res["count"] > 5:
+                    st.caption(f"… and {res['count'] - 5} more.")
+            if gconf:
+                gok = st.checkbox("I confirm these DRAFT rows are reviewed and approved.",
+                                  key="gp_confirm")
+                if st.button(f"⬆ Push to {tgt} (live)", type="primary",
+                             disabled=not gok, key="gp_push"):
+                    try:
+                        res = gclient.push(conn, sid, cv, dry_run=False)
+                        audit("grc_push_api", sysname, tgt)
+                        st.success(f"Pushed to {tgt}: {res}")
+                    except _gp.GrcPushError as e:
+                        st.error(str(e))
+
         st.subheader("System Security Plan (SSP)")
         a, b = st.columns(2)
         if a.button("Generate OSCAL SSP", key="ssp_oscal"):
