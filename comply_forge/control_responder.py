@@ -126,3 +126,54 @@ def draft_response(
         )
         conn.commit()
     return answer
+
+
+def _documented_ids(conn, system_id: str, catalog_version_id: str) -> set[str]:
+    rows = conn.execute(
+        "SELECT control_id FROM implemented_requirements "
+        "WHERE system_id=? AND catalog_version_id=?",
+        (system_id, catalog_version_id)).fetchall()
+    return {r[0] for r in rows}
+
+
+def draft_baseline_responses(
+    conn, *, system_id: str, catalog_version_id: str, baseline_id: str,
+    provider: LLMProvider | None = None, overwrite: bool = False,
+    limit: int | None = None, progress=None,
+) -> dict:
+    """Draft responses for every control in a baseline that isn't documented yet.
+
+    Each draft is needs_review=1 (same guardrail as draft_response). Controls
+    already documented are skipped unless overwrite=True. Controls in the baseline
+    but missing from the catalog are recorded as skipped (not an error). progress,
+    if given, is called as progress(done, total, control_id)."""
+    from . import baselines
+    provider = provider or get_provider()
+    ids = baselines.baseline_control_ids(conn, baseline_id)
+    if not ids:
+        raise ValueError(f"baseline {baseline_id} has no controls (load it first)")
+
+    existing = _documented_ids(conn, system_id, catalog_version_id)
+    todo = [c for c in ids if overwrite or c not in existing]
+    if limit is not None:
+        todo = todo[:limit]
+
+    drafted, skipped, errors = [], [], []
+    total = len(todo)
+    for i, cid in enumerate(todo, 1):
+        if progress:
+            progress(i, total, cid)
+        try:
+            draft_response(conn, system_id=system_id,
+                           catalog_version_id=catalog_version_id, control_id=cid,
+                           provider=provider, persist=True)
+            drafted.append(cid)
+        except ValueError:
+            skipped.append(cid)          # in baseline but not in this catalog
+        except Exception as e:           # noqa: BLE001 — keep going, report at end
+            errors.append({"control_id": cid, "error": str(e)})
+
+    return {"baseline_id": baseline_id, "total_in_baseline": len(ids),
+            "already_documented": len(existing),
+            "drafted": drafted, "skipped": skipped, "errors": errors,
+            "drafted_count": len(drafted)}

@@ -568,6 +568,45 @@ elif PAGE == "Draft Control Response":
                 except ValueError as e:
                     st.error(str(e))
 
+            st.divider()
+            st.subheader("Draft an entire baseline")
+            st.caption("Draft responses for every control in a baseline at once. "
+                       "Already-documented controls are skipped; each draft is "
+                       "needs_review until approved in the Review Queue.")
+            from comply_forge import baselines as _bl
+            bids = [r[0] for r in conn.execute(
+                "SELECT baseline_id FROM baselines ORDER BY baseline_id")]
+            if not bids:
+                st.info("Load baselines first (Dashboard).")
+            else:
+                impact = conn.execute("SELECT impact_level FROM systems WHERE system_id=?",
+                                      (sysmap[sysname],)).fetchone()
+                default_bid = f"nist_800_53b@{(impact[0] if impact else 'moderate')}"
+                bidx = bids.index(default_bid) if default_bid in bids else 0
+                bsel = st.selectbox("Baseline", bids, index=bidx)
+                n_total = len(_bl.baseline_control_ids(conn, bsel))
+                cap = st.number_input("Max controls this run (0 = all)", min_value=0,
+                                      value=min(25, n_total), step=25)
+                st.caption(f"{bsel} has {n_total} controls. With the live LLM this can "
+                           "take a while and consume tokens; cap it for a first pass.")
+                if st.button("Draft baseline", key="bulk_draft"):
+                    bar = st.progress(0.0, text="Starting…")
+                    def _prog(done, total, cid):
+                        bar.progress(done / max(total, 1),
+                                     text=f"{done}/{total} — {cid.upper()}")
+                    res = control_responder.draft_baseline_responses(
+                        conn, system_id=sysmap[sysname], catalog_version_id=cv,
+                        baseline_id=bsel, provider=prov,
+                        limit=(int(cap) or None), progress=_prog)
+                    bar.empty()
+                    audit("draft_baseline", bsel, f"drafted={res['drafted_count']}")
+                    st.success(f"Drafted {res['drafted_count']} control(s); "
+                               f"{res['already_documented']} already documented, "
+                               f"{len(res['skipped'])} not in catalog, "
+                               f"{len(res['errors'])} error(s).")
+                    if res["errors"]:
+                        st.json(res["errors"][:10])
+
 
 # --------------------------------------------------------------------------- #
 # Authorization Package (SSP + POA&M)
