@@ -658,6 +658,39 @@ elif PAGE == "Authorization Package":
                                file_name=f"{sysname}_{slug}.csv", mime="text/csv",
                                key="dl_grc")
 
+        with st.expander("🔌 Push to eMASS (REST API)"):
+            from comply_forge import emass_client as _em
+            configured = _em.is_configured()
+            if configured:
+                st.success("eMASS configured from environment (EMASS_URL / api-key / user-uid).")
+            else:
+                st.info("eMASS not configured. Set EMASS_URL, EMASS_API_KEY, EMASS_USER_UID "
+                        "(and EMASS_CERT/EMASS_KEY for mutual TLS) to enable live push. "
+                        "Dry-run preview works without credentials.")
+            which = st.selectbox("Endpoint", ["Controls", "Test Results", "POA&M"],
+                                 key="em_which")
+            client = _em.get_emass_client() or _em.FakeEmassClient()
+            method = {"Controls": client.push_controls,
+                      "Test Results": client.push_test_results,
+                      "POA&M": client.push_poam}[which]
+            if st.button("Build payload (dry run)", key="em_dry"):
+                res = method(sid, conn, cv, dry_run=True)
+                st.caption(f"{res['endpoint']} — {res['count']} item(s)")
+                st.json(res["payload"][:5])
+                if res["count"] > 5:
+                    st.caption(f"… and {res['count'] - 5} more.")
+            if configured:
+                confirm = st.checkbox("I confirm these DRAFT rows are reviewed and "
+                                      "approved for eMASS.", key="em_confirm")
+                if st.button("⬆ Push to eMASS (live)", type="primary",
+                             disabled=not confirm, key="em_push"):
+                    try:
+                        res = method(sid, conn, cv, dry_run=False)
+                        audit("emass_push", sysname, which)
+                        st.success(f"Pushed to eMASS: {res}")
+                    except _em.EmassError as e:
+                        st.error(str(e))
+
         st.subheader("System Security Plan (SSP)")
         a, b = st.columns(2)
         if a.button("Generate OSCAL SSP", key="ssp_oscal"):
