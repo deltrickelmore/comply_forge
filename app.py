@@ -642,6 +642,22 @@ elif PAGE == "Authorization Package":
                                file_name=f"{sysname}_Authorization_Package.zip",
                                mime="application/zip", key="dl_pkg")
 
+        st.subheader("Export to GRC platforms")
+        st.caption("Mesh with eMASS, Xacta, Archer, MCCAST. OSCAL (above) is the "
+                   "lossless interchange; these are the tabular control-status / "
+                   "test-result imports those platforms accept. All rows are DRAFT.")
+        from comply_forge import integrations as _intg
+        ex_label = st.selectbox("Export format", list(_intg.EXPORTS), key="grc_fmt")
+        if st.button("Build export (.csv)", key="grc_export"):
+            slug, fn = _intg.EXPORTS[ex_label]
+            data = fn(conn, sid, cv)
+            n = max(0, data.count("\n") - 1)
+            audit("grc_export", sysname, slug)
+            st.success(f"{n} row(s) exported for {ex_label.split(' —')[0]}.")
+            st.download_button("⬇ Download .csv", data,
+                               file_name=f"{sysname}_{slug}.csv", mime="text/csv",
+                               key="dl_grc")
+
         st.subheader("System Security Plan (SSP)")
         a, b = st.columns(2)
         if a.button("Generate OSCAL SSP", key="ssp_oscal"):
