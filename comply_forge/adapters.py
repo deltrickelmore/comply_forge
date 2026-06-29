@@ -135,6 +135,43 @@ def load_cmmc_levels_csv(conn, csv_path: str | Path) -> int:
     return len(payload)
 
 
+def load_generic_oscal(conn, path, *, framework_id: str, name: str, authority: str,
+                       version_label: str, id_mode: str = "rawid",
+                       family_mode: str = "prefix", make_current: bool = True) -> dict:
+    """Load an OSCAL catalog with no embedded 800-53 mapping (browsable framework).
+    id_mode: 'rawid' (e.g. po.1) or 'sortid' (e.g. 03.01.01E).
+    family_mode: 'prefix' (chars before '.') or 'dotnum' (3.N from 03.NN.*)."""
+    import json
+    from .catalog_loader import _iter_controls, _flatten_prose, load_controls
+    from .models import Control
+
+    def sort_id(c):
+        return next((p["value"] for p in c.get("props", []) or []
+                     if p.get("name") == "sort-id"), "")
+
+    doc = json.loads(Path(path).read_text())
+    cat = doc.get("catalog", doc)
+    controls = []
+    for raw in _iter_controls(cat):
+        cid = (sort_id(raw) if id_mode == "sortid" else (raw.get("id") or "")).lower()
+        if not cid:
+            continue
+        if family_mode == "dotnum":
+            segs = cid.split(".")
+            fam = f"3.{int(segs[1])}" if len(segs) >= 2 and segs[0] in ("03", "3") else cid
+        else:
+            fam = cid.split(".")[0].upper()
+        stmt = (_flatten_prose(raw.get("parts", []), "statement")
+                or _flatten_prose(raw.get("parts", []), "*"))
+        title = raw.get("title", "") or (stmt[:120] or cid.upper())
+        controls.append(Control(control_id=cid, family=fam, title=title,
+                                statement=stmt, guidance="", oscal=raw))
+    cv = load_controls(conn, framework_id=framework_id, framework_name=name,
+                       authority=authority, version_label=version_label,
+                       controls=controls, source_uri=str(path), make_current=make_current)
+    return {"controls": len(controls), "catalog_version": cv}
+
+
 def load_csf_oscal(conn, path, version_label: str = "2.0", make_current: bool = True) -> dict:
     """Load the NIST CSF 2.0 OSCAL catalog (functions/categories/subcategories).
     CSF carries no embedded 800-53 mapping (NIST publishes those as separate OLIR

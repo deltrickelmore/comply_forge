@@ -312,6 +312,9 @@ if PAGE == "Dashboard":
             with st.spinner("Downloading 800-171 Rev 3…"): st.success(_bs.init_800171(conn))
         if st.button("Load NIST CSF 2.0"):
             with st.spinner("Downloading CSF 2.0…"): st.success(_bs.init_csf(conn))
+        if st.button("Load 800-172 + SSDF (800-218)"):
+            with st.spinner("Downloading 800-172 & 800-218…"):
+                st.success(_bs.init_800172(conn)); st.success(_bs.init_800218(conn))
 
 
 # --------------------------------------------------------------------------- #

@@ -27,6 +27,10 @@ _NIST171 = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
             "nist.gov/SP800-171/rev3/json/NIST_SP800-171_rev3_catalog.json")
 _NISTCSF = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
             "nist.gov/CSF/v2.0/json/NIST_CSF_v2.0_catalog.json")
+_NIST172 = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
+            "nist.gov/SP800-172/rev3/json/NIST_SP800-172_rev3_catalog.json")
+_NIST218 = ("https://raw.githubusercontent.com/usnistgov/oscal-content/main/"
+            "nist.gov/SP800-218/ver1/json/NIST_SP800-218_ver1_catalog.json")
 _CCI_URL = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/U_CCI_List.zip"
 
 
@@ -97,6 +101,25 @@ def init_csf(conn) -> str:
     return f"Loaded NIST CSF 2.0: {res['controls']} subcategories"
 
 
+def init_800172(conn) -> str:
+    from . import adapters
+    tmp = Path("/tmp/cf_800-172.json"); tmp.write_bytes(_get(_NIST172))
+    res = adapters.load_generic_oscal(
+        conn, tmp, framework_id="nist_800_172", name="NIST SP 800-172",
+        authority="NIST", version_label="Rev 3", id_mode="sortid", family_mode="dotnum")
+    return f"Loaded NIST SP 800-172 Rev 3: {res['controls']} enhanced requirements"
+
+
+def init_800218(conn) -> str:
+    from . import adapters
+    tmp = Path("/tmp/cf_800-218.json"); tmp.write_bytes(_get(_NIST218))
+    res = adapters.load_generic_oscal(
+        conn, tmp, framework_id="nist_ssdf", name="NIST SSDF (SP 800-218)",
+        authority="NIST", version_label="v1.1", id_mode="rawid", family_mode="prefix")
+    return f"Loaded NIST SSDF (800-218): {res['controls']} practices/tasks"
+
+
 def init_all(conn) -> list[str]:
     return [init_registry(conn), init_catalog(conn), init_baselines(conn),
-            init_cci(conn), init_800171(conn), init_csf(conn)]
+            init_cci(conn), init_800171(conn), init_csf(conn),
+            init_800172(conn), init_800218(conn)]
