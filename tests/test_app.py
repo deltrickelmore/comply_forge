@@ -12,7 +12,7 @@ PAGES = [
     "Dashboard", "Categorize (CIA)", "Controls", "Crosswalk & Coverage",
     "Draft Control Response", "Authorization Package", "FISCAM Test Plan",
     "Control Family Plans", "STIG Library", "Review Queue",
-    "Continuous Monitoring", "Admin",
+    "Continuous Monitoring", "Framework Revisions", "Admin",
 ]
 
 

@@ -86,7 +86,7 @@ PAGE = st.sidebar.radio("Navigate", [
     "Dashboard", "Categorize (CIA)", "Controls", "Crosswalk & Coverage",
     "Draft Control Response", "Authorization Package",
     "FISCAM Test Plan", "Control Family Plans",
-    "STIG Library", "Review Queue", "Continuous Monitoring",
+    "STIG Library", "Review Queue", "Continuous Monitoring", "Framework Revisions",
 ] + (["Admin"] if USER["role"] == "admin" else []))
 st.sidebar.divider()
 st.sidebar.markdown(f"**LLM provider:** `{prov.name}`")
@@ -1035,6 +1035,84 @@ elif PAGE == "Continuous Monitoring":
                         _cm.mark_reassessed(conn, r["ir_id"], who)
                         audit("reassess_control", r["control_id"].upper(), f"by {who}")
                         st.rerun()
+
+
+# --------------------------------------------------------------------------- #
+# Framework Revisions (load a new revision, diff it, flag affected answers)
+# --------------------------------------------------------------------------- #
+elif PAGE == "Framework Revisions":
+    import pandas as pd
+    from comply_forge import versioning as _ver, catalog_loader as _cl
+    st.title("Framework Revisions")
+    st.caption("When NIST publishes a new revision (e.g. 800-53 Rev 6), load it, see "
+               "exactly what changed, and flag your affected answers for re-review. "
+               "Answers are never silently migrated — a human decides.")
+
+    fw_rows = conn.execute(
+        "SELECT DISTINCT framework_id FROM catalog_versions ORDER BY framework_id").fetchall()
+    if not fw_rows:
+        st.warning("No catalogs loaded.")
+    else:
+        fw = st.selectbox("Framework", [r[0] for r in fw_rows])
+        vers = conn.execute(
+            "SELECT catalog_version_id, version_label, is_current FROM catalog_versions "
+            "WHERE framework_id=? ORDER BY loaded_at", (fw,)).fetchall()
+        st.dataframe(pd.DataFrame([{"version": v[0], "label": v[1],
+                                    "current": "✓" if v[2] else ""} for v in vers]),
+                     width="stretch", hide_index=True)
+
+        with st.expander("➕ Load a new revision (OSCAL catalog .json)"):
+            up = st.file_uploader("OSCAL catalog", type=["json"], key="rev_up")
+            new_label = st.text_input("Version label", value="Rev 6", key="rev_label")
+            make_cur = st.checkbox("Make this the current version", value=False)
+            if up and new_label and st.button("Load revision", key="rev_load"):
+                tmp = Path(tempfile.mkdtemp()) / up.name
+                tmp.write_bytes(up.getvalue())
+                fname = conn.execute("SELECT name FROM frameworks WHERE framework_id=?",
+                                     (fw,)).fetchone()
+                cvid = _cl.load_oscal_catalog_file(
+                    conn, tmp, framework_id=fw,
+                    framework_name=(fname[0] if fname else fw), authority="NIST",
+                    version_label=new_label, make_current=make_cur)
+                audit("load_revision", cvid, new_label)
+                st.success(f"Loaded {cvid}.")
+                st.rerun()
+
+        if len(vers) < 2:
+            st.info("Load a second version above to compare revisions.")
+        else:
+            ids = [v[0] for v in vers]
+            c1, c2 = st.columns(2)
+            from_v = c1.selectbox("From (old)", ids, index=0)
+            to_v = c2.selectbox("To (new)", ids, index=len(ids) - 1)
+            if from_v == to_v:
+                st.info("Pick two different versions.")
+            else:
+                diff = _ver.diff_versions(conn, from_v, to_v)
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Added", len(diff["added"]))
+                m2.metric("Withdrawn", len(diff["removed"]))
+                m3.metric("Modified", len(diff["modified"]))
+                for label, key in (("Added", "added"), ("Withdrawn", "removed"),
+                                   ("Modified", "modified")):
+                    if diff[key]:
+                        st.markdown(f"**{label}:** " +
+                                    ", ".join(c.upper() for c in diff[key][:60]))
+
+                affected = conn.execute(
+                    "SELECT COUNT(*) FROM implemented_requirements WHERE catalog_version_id=? "
+                    "AND control_id IN (%s)" % (",".join("?" * len(diff["modified"] + diff["removed"])) or "''"),
+                    (from_v, *(diff["modified"] + diff["removed"]))).fetchone()[0] \
+                    if (diff["modified"] + diff["removed"]) else 0
+                st.caption(f"{affected} of your answers on {from_v} are tied to a "
+                           "changed/withdrawn control.")
+                if affected and st.button("Flag affected answers for re-review",
+                                          type="primary", key="rev_flag"):
+                    res = _ver.flag_affected_answers(conn, from_v, to_v)
+                    audit("flag_revision_impact", f"{from_v}->{to_v}",
+                          f"flagged={res['flagged']}")
+                    st.success(f"Flagged {res['flagged']} answer(s) for re-review. "
+                               "See the Review Queue.")
 
 
 # --------------------------------------------------------------------------- #
