@@ -646,7 +646,7 @@ elif PAGE == "Authorization Package":
                        "as DRAFT. Approve in the Review Queue before authorization.")
 
         st.subheader("Full authorization package")
-        st.caption("SSP + SAR + POA&M in one download (OSCAL JSON + Word).")
+        st.caption("SSP + SAR + POA&M in one download (OSCAL JSON + Word + PDF).")
         if st.button("⬇ Build full package (.zip)", type="primary", key="pkg_zip"):
             import io as _io, zipfile as _zip, json as _json
             tmp = Path(tempfile.mkdtemp())
@@ -661,6 +661,12 @@ elif PAGE == "Authorization Package":
                                         path=tmp / f"{sysname}_SAR.docx", **kw)
             poam_w = _poam.write_word_poam(conn, system_id=sid, catalog_version_id=cv,
                                            path=tmp / f"{sysname}_POAM.docx", **kw)
+            from comply_forge import pdf_export as _pdf
+            pkw = dict(prepared_by=BRAND["name"], prepared_for=apkg_agency,
+                       brand_color=BRAND["brand_color"])
+            ssp_p = _pdf.ssp_to_pdf(ssp_j, tmp / f"{sysname}_SSP.pdf", **pkw)
+            sar_p = _pdf.sar_to_pdf(sar_j, tmp / f"{sysname}_SAR.pdf", **pkw)
+            poam_p = _pdf.poam_to_pdf(poam_j, tmp / f"{sysname}_POAM.pdf", **pkw)
             valid = {k: _val.validate(d)[0] for k, d in
                      (("SSP", ssp_j), ("SAR", sar_j), ("POA&M", poam_j))}
             manifest = (f"Authorization Package — {sysname}\n"
@@ -673,7 +679,7 @@ elif PAGE == "Authorization Package":
                 z.writestr(f"{sysname}_SSP.json", _json.dumps(ssp_j, indent=2))
                 z.writestr(f"{sysname}_SAR.json", _json.dumps(sar_j, indent=2))
                 z.writestr(f"{sysname}_POAM.json", _json.dumps(poam_j, indent=2))
-                for w in (ssp_w, sar_w, poam_w):
+                for w in (ssp_w, sar_w, poam_w, ssp_p, sar_p, poam_p):
                     z.write(w, arcname=w.name)
             audit("generate_package", sysname, f"valid={valid}")
             st.success(f"Package built — OSCAL valid: {valid}")

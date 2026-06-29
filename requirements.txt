@@ -12,3 +12,4 @@ jsonschema>=4.0           # OSCAL validation against NIST schemas (validation.py
 
 # --- UI (phase 5) ---
 streamlit>=1.40
+reportlab
