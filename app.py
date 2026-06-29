@@ -416,6 +416,28 @@ elif PAGE == "Controls":
         st.dataframe([{"control": r[0].upper(), "title": r[1]} for r in rows],
                      width='stretch', hide_index=True)
 
+        if cv.startswith("nist_800_53@"):
+            from comply_forge import assessment as _assess
+            st.divider()
+            st.subheader("800-53A assessment objectives")
+            st.caption("Authoritative 'determine that' objectives and assessment "
+                       "methods (Examine / Interview / Test), straight from the NIST catalog.")
+            acid = st.text_input("Control ID", value="ac-2", key="assess_cid").strip().lower()
+            s = _assess.summary(conn, acid, cv)
+            if not s["objective_count"]:
+                st.info(f"No assessment objectives found for {acid.upper()} in {cv}.")
+            else:
+                st.markdown(f"**{acid.upper()}** — {s['objective_count']} objectives · "
+                            f"methods: {', '.join(s['method_labels']) or '—'}")
+                with st.expander("Determine that…", expanded=True):
+                    for o in s["objectives"]:
+                        st.markdown(f"{'&nbsp;' * (o.depth * 4)}**{o.id}** — {o.prose}",
+                                    unsafe_allow_html=True)
+                for m in s["methods"]:
+                    with st.expander(f"{m.method.title()} — {len(m.objects)} object(s)"):
+                        for ob in m.objects:
+                            st.markdown(f"- {ob}")
+
 
 # --------------------------------------------------------------------------- #
 # Crosswalk & Coverage
