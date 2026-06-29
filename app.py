@@ -318,6 +318,13 @@ if PAGE == "Dashboard":
                 f'<span class="pill ok">{len(_stig.assigned_stigs(conn, sid)) if stigs else 0}</span></div></div>',
                 unsafe_allow_html=True)
 
+        missing_ev = _pos.controls_without_evidence(conn, sid)
+        if missing_ev:
+            with st.expander(f"📎 {len(missing_ev)} documented control(s) without evidence"):
+                st.caption("Assessors ask for evidence on every control. Attach it on the "
+                           "Draft Control Response page.")
+                st.markdown(", ".join(c.upper() for c in missing_ev))
+
         fam_cov = _pos.coverage_by_family(conn, sid)
         if fam_cov:
             st.markdown("#### Baseline coverage by control family")
@@ -718,6 +725,11 @@ elif PAGE == "Draft Control Response":
                 n_total = len(_bl.baseline_control_ids(conn, bsel))
                 cap = st.number_input("Max controls this run (0 = all)", min_value=0,
                                       value=min(25, n_total), step=25)
+                overwrite = st.checkbox(
+                    "Re-draft controls that are already documented (overwrite)",
+                    value=False, key="bulk_overwrite",
+                    help="Replaces existing answers in place and re-enters them in the "
+                         "Review Queue. Off = only fill gaps.")
                 st.caption(f"{bsel} has {n_total} controls. With the live LLM this can "
                            "take a while and consume tokens; cap it for a first pass.")
                 if st.button("Draft baseline", key="bulk_draft"):
@@ -727,7 +739,7 @@ elif PAGE == "Draft Control Response":
                                      text=f"{done}/{total} — {cid.upper()}")
                     res = control_responder.draft_baseline_responses(
                         conn, system_id=sysmap[sysname], catalog_version_id=cv,
-                        baseline_id=bsel, provider=prov,
+                        baseline_id=bsel, provider=prov, overwrite=overwrite,
                         limit=(int(cap) or None), progress=_prog)
                     bar.empty()
                     audit("draft_baseline", bsel, f"drafted={res['drafted_count']}")

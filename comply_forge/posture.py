@@ -91,6 +91,18 @@ def status_breakdown(conn, system_id: str) -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+def controls_without_evidence(conn, system_id: str) -> list[str]:
+    """Documented controls for the system that have no evidence attached (worklist)."""
+    rows = conn.execute(
+        """SELECT DISTINCT ir.control_id FROM implemented_requirements ir
+            WHERE ir.system_id=?
+              AND NOT EXISTS (SELECT 1 FROM evidence e
+                               WHERE e.system_id=ir.system_id AND e.control_id=ir.control_id)
+            ORDER BY ir.control_id""",
+        (system_id,)).fetchall()
+    return [r[0] for r in rows]
+
+
 def coverage_by_family(conn, system_id: str, impact: str | None = None) -> list[dict]:
     """Per-family baseline coverage for one system (which families have gaps)."""
     row = conn.execute("SELECT impact_level FROM systems WHERE system_id=?",

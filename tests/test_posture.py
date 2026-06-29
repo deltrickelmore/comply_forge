@@ -81,6 +81,14 @@ def test_reviewed_inherited_counts_satisfied(conn):
     assert p["satisfied"] == 1 and p["inherited"] == 1
 
 
+def test_controls_without_evidence_list(conn):
+    from comply_forge import posture, evidence
+    _draft(conn, "ac-2")
+    assert "ac-2" in posture.controls_without_evidence(conn, "sys-test")
+    evidence.add_note(conn, system_id="sys-test", control_id="ac-2", title="n")
+    assert "ac-2" not in posture.controls_without_evidence(conn, "sys-test")
+
+
 def test_unknown_system_raises(conn):
     from comply_forge import posture
     with pytest.raises(ValueError):

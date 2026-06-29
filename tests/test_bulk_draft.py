@@ -36,6 +36,24 @@ def test_draft_baseline_limit_and_progress(conn):
     assert seen and seen[0][0] == 1
 
 
+def test_draft_baseline_overwrite_redrafts_existing(conn):
+    """overwrite=True re-drafts already-documented controls in place (no dupes)."""
+    from comply_forge import control_responder as cr, baselines
+    bid = "nist_800_53b@moderate"
+    in_cat = {r[0] for r in conn.execute(
+        "SELECT control_id FROM controls WHERE catalog_version_id='nist_800_53@rev5'")}
+    target = next(c for c in baselines.baseline_control_ids(conn, bid) if c in in_cat)
+    cr.draft_response(conn, system_id="sys-test", catalog_version_id="nist_800_53@rev5",
+                      control_id=target, provider=FakeProvider(), persist=True)
+    res = cr.draft_baseline_responses(
+        conn, system_id="sys-test", catalog_version_id="nist_800_53@rev5",
+        baseline_id=bid, provider=FakeProvider(), overwrite=True)
+    assert target in res["drafted"]                    # re-drafted, not skipped
+    n = conn.execute("SELECT COUNT(*) FROM implemented_requirements "
+                     "WHERE system_id='sys-test' AND control_id=?", (target,)).fetchone()[0]
+    assert n == 1                                       # still one row
+
+
 def test_draft_baseline_missing_baseline(conn):
     from comply_forge import control_responder as cr
     with pytest.raises(ValueError):
