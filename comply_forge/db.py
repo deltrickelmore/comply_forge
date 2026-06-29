@@ -65,6 +65,24 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id, ts);
 
+-- Evidence artifacts attached to a control for a system (file blob, link, or note).
+-- Assessors always ask "where's the evidence?" -- this is the answer, cited in the SSP.
+CREATE TABLE IF NOT EXISTS evidence (
+    evidence_id TEXT PRIMARY KEY,
+    system_id   TEXT NOT NULL REFERENCES systems(system_id) ON DELETE CASCADE,
+    control_id  TEXT NOT NULL,
+    kind        TEXT NOT NULL,            -- 'file' | 'link' | 'note'
+    title       TEXT NOT NULL,
+    uri         TEXT,                      -- for kind='link'
+    filename    TEXT,                      -- for kind='file'
+    mime        TEXT,
+    blob        BLOB,                      -- for kind='file'
+    description TEXT,
+    added_by    TEXT,
+    added_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_ctrl ON evidence(system_id, control_id);
+
 -- ---------------------------------------------------------------------------
 -- Framework registry. One row per framework family (not per revision).
 -- kind drives how the framework behaves:

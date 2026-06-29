@@ -66,8 +66,17 @@ def build_oscal_ssp(conn, *, system_id: str, catalog_version_id: str,
     impact = (sysrow["impact_level"] or baseline_impact).lower()
     this_system_uuid = str(uuid.uuid4())
 
+    from . import evidence as _ev
     implemented = []
     for r in reqs:
+        by_component = {
+            "component-uuid": this_system_uuid,
+            "uuid": str(uuid.uuid4()),
+            "description": r["statement"] or "",
+        }
+        ev_links = _ev.oscal_links(conn, system_id, r["control_id"])
+        if ev_links:
+            by_component["links"] = ev_links
         implemented.append({
             "uuid": str(uuid.uuid4()),
             "control-id": r["control_id"],
@@ -78,12 +87,10 @@ def build_oscal_ssp(conn, *, system_id: str, catalog_version_id: str,
                 {"name": "review-status",
                  "value": "reviewed" if not r["needs_review"] else "draft-needs-review",
                  "ns": "https://complyforge.local/ns/oscal"},
+                {"name": "evidence-count", "value": str(len(ev_links)),
+                 "ns": "https://complyforge.local/ns/oscal"},
             ],
-            "by-components": [{
-                "component-uuid": this_system_uuid,
-                "uuid": str(uuid.uuid4()),
-                "description": r["statement"] or "",
-            }],
+            "by-components": [by_component],
         })
 
     ssp = {"system-security-plan": {

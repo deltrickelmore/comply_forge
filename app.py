@@ -607,6 +607,52 @@ elif PAGE == "Draft Control Response":
                 except ValueError as e:
                     st.error(str(e))
 
+            from comply_forge import evidence as _ev
+            with st.expander(f"📎 Evidence for {control_id.upper()}", expanded=False):
+                items = _ev.list_for_control(conn, sysmap[sysname], control_id)
+                if items:
+                    for e in items:
+                        ic = {"file": "📄", "link": "🔗", "note": "🗒️"}.get(e["kind"], "•")
+                        cols = st.columns([6, 2, 1])
+                        label = e["title"] + (f" — {e['uri']}" if e["kind"] == "link" else "")
+                        cols[0].markdown(f"{ic} {label}")
+                        if e["kind"] == "file":
+                            blob = _ev.get_blob(conn, e["evidence_id"])
+                            if blob:
+                                cols[1].download_button("Download", blob[2],
+                                    file_name=blob[0], mime=blob[1],
+                                    key=f"evdl_{e['evidence_id']}")
+                        if cols[2].button("✕", key=f"evrm_{e['evidence_id']}"):
+                            _ev.delete(conn, e["evidence_id"]); st.rerun()
+                else:
+                    st.caption("No evidence attached yet.")
+                ekind = st.radio("Add", ["Link", "File", "Note"], horizontal=True,
+                                 key="ev_kind", label_visibility="collapsed")
+                etitle = st.text_input("Title", key="ev_title")
+                if ekind == "Link":
+                    euri = st.text_input("URL", key="ev_uri",
+                                         placeholder="https://wiki/.../evidence")
+                    if st.button("Attach link", key="ev_add_link",
+                                 disabled=not (etitle and euri)):
+                        _ev.add_link(conn, system_id=sysmap[sysname], control_id=control_id,
+                                     title=etitle, uri=euri, added_by=USER["username"])
+                        audit("add_evidence", control_id.upper(), "link"); st.rerun()
+                elif ekind == "File":
+                    up = st.file_uploader("File", key="ev_file")
+                    if up and st.button("Attach file", key="ev_add_file", disabled=not etitle):
+                        _ev.add_file(conn, system_id=sysmap[sysname], control_id=control_id,
+                                     title=etitle, filename=up.name, blob=up.getvalue(),
+                                     mime=up.type or "application/octet-stream",
+                                     added_by=USER["username"])
+                        audit("add_evidence", control_id.upper(), "file"); st.rerun()
+                else:
+                    edesc = st.text_area("Note", key="ev_desc")
+                    if st.button("Add note", key="ev_add_note",
+                                 disabled=not (etitle and edesc)):
+                        _ev.add_note(conn, system_id=sysmap[sysname], control_id=control_id,
+                                     title=etitle, description=edesc, added_by=USER["username"])
+                        audit("add_evidence", control_id.upper(), "note"); st.rerun()
+
             st.divider()
             st.subheader("Draft an entire baseline")
             st.caption("Draft responses for every control in a baseline at once. "
