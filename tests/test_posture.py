@@ -57,6 +57,30 @@ def test_coverage_by_family(conn):
     assert all(0 <= f["coverage_pct"] <= 100 for f in fam)
 
 
+def test_posture_evidence_and_inherited_fields(conn):
+    from comply_forge import posture, evidence
+    _draft(conn, "ac-2")
+    p0 = posture.system_posture(conn, "sys-test")
+    assert p0["evidence_items"] == 0 and p0["controls_without_evidence"] >= 1
+    evidence.add_link(conn, system_id="sys-test", control_id="ac-2",
+                      title="x", uri="https://x")
+    p1 = posture.system_posture(conn, "sys-test")
+    assert p1["evidence_items"] == 1
+    assert p1["controls_without_evidence"] == p0["controls_without_evidence"] - 1
+    assert "inherited" in p1
+
+
+def test_reviewed_inherited_counts_satisfied(conn):
+    from comply_forge import posture
+    conn.execute("INSERT INTO implemented_requirements "
+                 "(ir_id,system_id,catalog_version_id,control_id,status,origin,"
+                 "needs_review,updated_at) VALUES ('i1','sys-test','nist_800_53@rev5',"
+                 "'ac-2','inherited','inherited',0,'2026-01-01')")
+    conn.commit()
+    p = posture.system_posture(conn, "sys-test")
+    assert p["satisfied"] == 1 and p["inherited"] == 1
+
+
 def test_unknown_system_raises(conn):
     from comply_forge import posture
     with pytest.raises(ValueError):

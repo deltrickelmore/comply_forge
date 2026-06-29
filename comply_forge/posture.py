@@ -29,9 +29,10 @@ def system_posture(conn, system_id: str, impact: str | None = None) -> dict:
         """SELECT COUNT(DISTINCT ir.control_id) FROM implemented_requirements ir
              JOIN baseline_controls b ON b.control_id=ir.control_id AND b.baseline_id=?
             WHERE ir.system_id=?""", (bid, system_id)).fetchone()[0]
+    # A reviewed control is satisfied whether implemented directly or inherited.
     satisfied = conn.execute(
         "SELECT COUNT(*) FROM implemented_requirements "
-        "WHERE system_id=? AND status='implemented' AND needs_review=0",
+        "WHERE system_id=? AND status IN ('implemented','inherited') AND needs_review=0",
         (system_id,)).fetchone()[0]
     answered = conn.execute(
         "SELECT COUNT(*) FROM implemented_requirements WHERE system_id=?",
@@ -39,6 +40,19 @@ def system_posture(conn, system_id: str, impact: str | None = None) -> dict:
     needs_review = conn.execute(
         "SELECT COUNT(*) FROM implemented_requirements "
         "WHERE system_id=? AND needs_review=1", (system_id,)).fetchone()[0]
+    inherited = conn.execute(
+        "SELECT COUNT(*) FROM implemented_requirements "
+        "WHERE system_id=? AND origin='inherited'", (system_id,)).fetchone()[0]
+    evidence_items = conn.execute(
+        "SELECT COUNT(*) FROM evidence WHERE system_id=?", (system_id,)).fetchone()[0]
+    # documented controls (in baseline) that have no evidence attached
+    no_evidence = conn.execute(
+        """SELECT COUNT(*) FROM implemented_requirements ir
+             JOIN baseline_controls b ON b.control_id=ir.control_id AND b.baseline_id=?
+            WHERE ir.system_id=?
+              AND NOT EXISTS (SELECT 1 FROM evidence e
+                               WHERE e.system_id=ir.system_id AND e.control_id=ir.control_id)""",
+        (bid, system_id)).fetchone()[0]
 
     open_findings = 0
     try:
@@ -53,7 +67,9 @@ def system_posture(conn, system_id: str, impact: str | None = None) -> dict:
         "coverage_pct": round(100 * documented / total, 1) if total else 0.0,
         "answered": answered, "satisfied": satisfied,
         "other_than_satisfied": answered - satisfied,
-        "needs_review": needs_review, "open_findings": open_findings,
+        "needs_review": needs_review, "inherited": inherited,
+        "evidence_items": evidence_items, "controls_without_evidence": no_evidence,
+        "open_findings": open_findings,
     }
 
 

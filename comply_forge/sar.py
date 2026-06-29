@@ -20,7 +20,8 @@ import uuid
 from pathlib import Path
 
 OSCAL_VERSION = "1.1.2"
-_SATISFIED = {"implemented"}
+# A reviewed control is satisfied whether implemented directly or inherited from a CCP.
+_SATISFIED = {"implemented", "inherited"}
 
 
 def _now() -> str:
@@ -34,9 +35,11 @@ def assess(conn, system_id: str, catalog_version_id: str) -> dict:
     if sysrow is None:
         raise ValueError(f"no such system: {system_id}")
     reqs = conn.execute(
-        """SELECT control_id, status, needs_review, statement FROM implemented_requirements
+        """SELECT control_id, status, needs_review, statement, origin
+             FROM implemented_requirements
             WHERE system_id=? AND catalog_version_id=? ORDER BY control_id""",
         (system_id, catalog_version_id)).fetchall()
+    inherited = sum(1 for r in reqs if r["origin"] == "inherited")
 
     findings = []
     satisfied = 0
@@ -81,6 +84,7 @@ def assess(conn, system_id: str, catalog_version_id: str) -> dict:
     return {"system_id": sysrow["system_id"], "system_name": sysrow["name"],
             "assessed": len(reqs), "satisfied": satisfied,
             "other_than_satisfied": len(reqs) - satisfied, "findings": findings,
+            "inherited": inherited,
             "objectives_by_control": objectives_by_control,
             "total_objectives": total_objectives,
             "methods": sorted(methods)}
@@ -128,7 +132,8 @@ def build_oscal_sar(conn, *, system_id: str, catalog_version_id: str) -> dict:
             "uuid": result_uuid,
             "title": "Control Assessment Results",
             "description": (
-                f"{a['assessed']} controls assessed; {a['satisfied']} satisfied, "
+                f"{a['assessed']} controls assessed; {a['satisfied']} satisfied "
+                f"({a.get('inherited', 0)} inherited from a common control provider), "
                 f"{a['other_than_satisfied']} other-than-satisfied. "
                 + (f"Assessed against {a['total_objectives']} NIST SP 800-53A "
                    f"assessment objectives (methods: "
@@ -177,7 +182,8 @@ def write_word_sar(conn, *, system_id: str, catalog_version_id: str, path: str |
     prepared_block(doc, prepared_by, prepared_for)
 
     doc.add_paragraph("1. Executive Summary", style="Heading 1")
-    doc.add_paragraph(f"{a['assessed']} controls assessed. {a['satisfied']} satisfied; "
+    doc.add_paragraph(f"{a['assessed']} controls assessed. {a['satisfied']} satisfied "
+                      f"({a.get('inherited', 0)} inherited from a common control provider); "
                       f"{a['other_than_satisfied']} other-than-satisfied. "
                       f"{len(a['findings'])} finding(s) below feed the POA&M.")
 

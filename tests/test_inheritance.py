@@ -86,6 +86,20 @@ def test_inherit_undocumented_control_raises(conn):
                                     control_id="au-2")  # provider never documented it
 
 
+def test_reviewed_inherited_not_a_sar_finding(conn):
+    from comply_forge import inheritance, sar
+    _provider_with_control(conn, "ac-2")
+    inheritance.inherit_control(conn, child_system_id="sys-test", provider_system_id="ccp",
+                                catalog_version_id=CV, control_id="ac-2")
+    # approve the inheritance
+    conn.execute("UPDATE implemented_requirements SET needs_review=0 "
+                 "WHERE system_id='sys-test' AND control_id='ac-2'")
+    conn.commit()
+    a = sar.assess(conn, "sys-test", CV)
+    assert a["satisfied"] == 1 and a["inherited"] == 1
+    assert not any(f["control_id"] == "ac-2" for f in a["findings"])
+
+
 def test_ssp_marks_inherited_from(conn):
     from comply_forge import inheritance, ssp, validation
     _provider_with_control(conn, "ac-2")

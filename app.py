@@ -245,7 +245,8 @@ if PAGE == "Dashboard":
             "System": p["name"], "Impact": p["impact"].title(),
             "Coverage %": p["coverage_pct"],
             "Documented": f"{p['documented']}/{p['baseline_total']}",
-            "Satisfied": p["satisfied"], "Needs review": p["needs_review"],
+            "Satisfied": p["satisfied"], "Inherited": p["inherited"],
+            "Needs review": p["needs_review"], "No evidence": p["controls_without_evidence"],
             "Open findings": p["open_findings"]} for p in folio])
         pcol, ccol = st.columns([1, 1], gap="large")
         with pcol:
