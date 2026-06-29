@@ -85,17 +85,20 @@ def prefill_from_answer(conn, source_ir_id: str) -> list[str]:
         prefix = "" if tgt["confidence"] == "full" else \
             "[PARTIAL via crosswalk -- complete the remaining scope] "
         ir_id = str(uuid.uuid4())
-        conn.execute(
+        # Never clobber an existing answer: a crosswalk prefill only fills gaps.
+        cur = conn.execute(
             """INSERT INTO implemented_requirements
                  (ir_id, system_id, catalog_version_id, control_id, status,
                   statement, origin, source_ir_id, needs_review, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,1,?)""",
+               VALUES (?,?,?,?,?,?,?,?,1,?)
+               ON CONFLICT(system_id, catalog_version_id, control_id) DO NOTHING""",
             (ir_id, src["system_id"], cv["catalog_version_id"], tgt["control_id"],
              "partial" if tgt["confidence"] == "partial" else src["status"],
              prefix + (src["statement"] or ""),
              "crosswalk_prefill", source_ir_id, now),
         )
-        created.append(ir_id)
+        if cur.rowcount:
+            created.append(ir_id)
 
     conn.commit()
     return created

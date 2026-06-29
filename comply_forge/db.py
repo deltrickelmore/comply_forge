@@ -345,6 +345,16 @@ def _migrate(conn: sqlite3.Connection) -> None:
         cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
         if col not in cols:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {decl}")
+    # One answer per (system, catalog version, control). Dedupe any legacy rows
+    # (keep the most recent) before enforcing it, so re-drafting is idempotent.
+    conn.execute(
+        """DELETE FROM implemented_requirements
+            WHERE rowid NOT IN (
+                SELECT MAX(rowid) FROM implemented_requirements
+                 GROUP BY system_id, catalog_version_id, control_id)""")
+    conn.execute(
+        """CREATE UNIQUE INDEX IF NOT EXISTS idx_ir_unique
+             ON implemented_requirements(system_id, catalog_version_id, control_id)""")
     conn.commit()
 
 

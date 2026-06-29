@@ -115,11 +115,18 @@ def draft_response(
     }
 
     if persist:
+        # Upsert: re-drafting a control replaces its answer in place (no dup rows)
+        # and re-enters the review queue (needs_review=1, prior sign-off cleared).
         conn.execute(
             """INSERT INTO implemented_requirements
                  (ir_id, system_id, catalog_version_id, control_id, status, statement,
                   origin, needs_review, oscal_json, updated_at)
-               VALUES (?,?,?,?,?,?,?,1,?,?)""",
+               VALUES (?,?,?,?,?,?,?,1,?,?)
+               ON CONFLICT(system_id, catalog_version_id, control_id) DO UPDATE SET
+                 ir_id=excluded.ir_id, status=excluded.status,
+                 statement=excluded.statement, origin=excluded.origin,
+                 needs_review=1, reviewed_by=NULL, reviewed_at=NULL,
+                 oscal_json=excluded.oscal_json, updated_at=excluded.updated_at""",
             (answer["ir_id"], system_id, catalog_version_id, control_id,
              answer["status"], answer["statement"], "llm",
              json.dumps({"provenance": provenance}), now),
