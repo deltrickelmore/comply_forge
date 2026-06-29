@@ -69,6 +69,22 @@ def test_fiscam_test_plan_workbook(conn, tmp_path):
     assert out.exists() and zipfile.is_zipfile(out)
 
 
+def test_test_plan_uses_800_53a(real_conn):
+    """When the control is an 800-53 control, TOD/TOE come from authoritative 800-53A."""
+    import pytest
+    from comply_forge import assessment, fiscam_test_plan
+    if not assessment.objectives(real_conn, "ac-2"):
+        pytest.skip("full 800-53 catalog not loaded locally")
+    plan = fiscam_test_plan.draft_test_plan(
+        real_conn, control_id="ac-2", provider=FakeProvider(), use_800_53a=True)
+    assert plan.provenance["authoritative_800_53a"] is True
+    assert "determine that" in plan.fields["tod_procedures"].lower()
+    # opting out falls back to LLM/deterministic prose
+    plan2 = fiscam_test_plan.draft_test_plan(
+        real_conn, control_id="ac-2", provider=FakeProvider(), use_800_53a=False)
+    assert plan2.provenance["authoritative_800_53a"] is False
+
+
 def test_family_plan_docx(conn, tmp_path):
     from comply_forge import control_family_plan
     out = tmp_path / "ac_plan.docx"

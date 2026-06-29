@@ -718,13 +718,21 @@ elif PAGE == "FISCAM Test Plan":
             loc = oc2.text_input("Location of executed control", value="")
         org_ctx = {k: v for k, v in {"jd_code": jd, "assessable_unit": au,
                    "assessable_unit_manager": aum, "location_executed": loc}.items() if v}
+        use_a = st.checkbox(
+            "Use authoritative NIST 800-53A objectives when the control is an 800-53 "
+            "control (e.g. AC-2, AU-6)", value=True,
+            help="Builds the TOD/TOE procedures from NIST's 'determine that' assessment "
+                 "objectives and Examine/Interview/Test methods instead of LLM prose.")
         if st.button("Generate test plan", type="primary", key="gen_tp", disabled=not cid):
             plan = fiscam_test_plan.draft_test_plan(
                 conn, control_id=cid, control_title=title, control_text=text,
-                org_context=org_ctx, provider=prov)
+                org_context=org_ctx, provider=prov, use_800_53a=use_a)
             out = Path(tempfile.mkdtemp()) / f"Enterprise_{cid.replace('.', '_')}.xlsx"
             fiscam_test_plan.write_workbook(plan, out)
             audit("generate_test_plan", cid)
+            if plan.provenance.get("authoritative_800_53a"):
+                st.info("TOD/TOE procedures sourced from authoritative NIST SP 800-53A "
+                        "assessment objectives.")
             st.success(f"Generated ({plan.provenance['field_source']}, needs_review).")
             st.download_button("Download .xlsx", _read_bytes(out),
                                file_name=out.name,

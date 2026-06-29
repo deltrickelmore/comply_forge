@@ -175,15 +175,71 @@ def _fiscam_control(conn, control_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+def _nist_800_53a_overrides(conn, control_id: str) -> dict[str, str]:
+    """If control_id is an 800-53 control, build authoritative TOD/TOE fields from
+    its embedded 800-53A objectives + Examine/Interview/Test methods. Returns {} if
+    the control has no 800-53A content (e.g. a FISCAM control)."""
+    if conn is None:
+        return {}
+    try:
+        from . import assessment
+    except Exception:
+        return {}
+    objs = assessment.objectives(conn, control_id)
+    if not objs:
+        return {}
+    meths = {m.method: m for m in assessment.methods(conn, control_id)}
+    examine = meths.get("EXAMINE")
+    test = meths.get("TEST")
+    interview = meths.get("INTERVIEW")
+
+    tod = ["Inquire with responsible personnel to confirm the control is designed "
+           "to meet each 800-53A assessment objective below."]
+    tod += [f"Determine that {o.prose}" for o in objs]
+
+    docs = (examine.objects if examine else []) or [
+        "Policy, procedures, and other relevant documents for this control."]
+    method_label = ", ".join(
+        lbl for lbl, present in (("Inquiry/Interview", interview),
+                                 ("Inspection/Examine", examine),
+                                 ("Re-Performance/Test", test)) if present
+    ) or "Inquiry, Inspection"
+    toe_steps = []
+    if test:
+        toe_steps.append("Test (re-perform): " + "; ".join(test.objects[:6]))
+    if interview:
+        toe_steps.append("Interview: " + "; ".join(interview.objects[:6]))
+    toe_steps.append("For each sampled item, gather current-period evidence showing "
+                     "each assessment objective is met; document exceptions.")
+
+    return {
+        "control_objective": (objs[0].prose if len(objs) == 1
+                              else f"Satisfy all {len(objs)} NIST SP 800-53A "
+                                   f"assessment objectives for this control."),
+        "tod_procedures": _render_list(tod),
+        "tod_documents": _render_list(docs),
+        "toe_test_method": method_label,
+        "toe_source_documents": _render_list(docs),
+        "toe_procedures": "\n".join(toe_steps),
+    }
+
+
 def draft_test_plan(
     conn, *, control_id: str,
     control_title: str = "", control_text: str = "",
     org_context: dict[str, str] | None = None,
     provider: LLMProvider | None = None,
+    use_800_53a: bool = True,
 ) -> FiscamTestPlan:
-    """Draft a FISCAM 2024 test plan for one control. needs_review always."""
+    """Draft a FISCAM 2024 test plan for one control. needs_review always.
+
+    If use_800_53a and the control is an 800-53 control, the TOD/TOE procedures,
+    documents, and test methods are taken from the authoritative NIST 800-53A
+    assessment objectives instead of LLM prose."""
     provider = provider or get_provider()
     org = {**_ORG_DEFAULTS, **(org_context or {})}
+
+    overrides = _nist_800_53a_overrides(conn, control_id) if use_800_53a else {}
 
     ctrl = _fiscam_control(conn, control_id) or {}
     title = control_title or ctrl.get("title", "")
@@ -210,16 +266,22 @@ def draft_test_plan(
             fields[k] = _render_list(parsed[k]) if k in _LIST_FIELDS else str(parsed[k])
         else:
             fields.setdefault(k, det[k])
+    # authoritative NIST 800-53A overrides win over LLM/deterministic prose
+    fields.update(overrides)
     # human fields -> blank for completion
     for k in _HUMAN_FIELDS:
         fields.setdefault(k, "")
 
     now = _dt.datetime.now(_dt.timezone.utc).isoformat()
-    source = "llm" if parsed else "deterministic_template"
+    if overrides:
+        source = "nist_800_53a" + ("+llm" if parsed else "")
+    else:
+        source = "llm" if parsed else "deterministic_template"
     return FiscamTestPlan(
         control_id=control_id, fields=fields, needs_review=True,
         provenance={**result.provenance(), "drafted_at": now,
-                    "structured": bool(parsed), "field_source": source})
+                    "structured": bool(parsed), "field_source": source,
+                    "authoritative_800_53a": bool(overrides)})
 
 
 def _deterministic_fields(control_id: str, title: str, text: str,
