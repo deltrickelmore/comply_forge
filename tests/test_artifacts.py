@@ -47,6 +47,33 @@ def test_sar_builds_and_validates(conn):
     assert ok, errors[:3]
 
 
+def test_sar_carries_800_53a_objectives(real_conn):
+    """SAR reviewed-controls references authoritative 800-53A objective ids."""
+    import pytest
+    from comply_forge import assessment, sar, validation, control_responder
+    if not assessment.objectives(real_conn, "ac-2"):
+        pytest.skip("full 800-53 catalog not loaded locally")
+    # need a system + a documented control in the real DB; use a throwaway system
+    real_conn.execute(
+        "INSERT OR IGNORE INTO systems (system_id,name,impact_level,created_at) "
+        "VALUES ('sar-probe','SAR Probe','moderate','2026-01-01')")
+    control_responder.draft_response(
+        real_conn, system_id="sar-probe", catalog_version_id="nist_800_53@rev5",
+        control_id="ac-2", provider=FakeProvider(), persist=True)
+    try:
+        doc = sar.build_oscal_sar(
+            real_conn, system_id="sar-probe", catalog_version_id="nist_800_53@rev5")
+        result = doc["assessment-results"]["results"][0]
+        sels = result["reviewed-controls"].get("control-objective-selections")
+        assert sels and sels[0]["include-objectives"]
+        ok, errors = validation.validate(doc)
+        assert ok, errors[:3]
+    finally:
+        real_conn.execute("DELETE FROM implemented_requirements WHERE system_id='sar-probe'")
+        real_conn.execute("DELETE FROM systems WHERE system_id='sar-probe'")
+        real_conn.commit()
+
+
 def test_poam_builds_and_validates(conn):
     from comply_forge import poam, validation
     _document_one(conn)  # an open/needs-review item makes poam-items non-empty

@@ -61,21 +61,50 @@ def assess(conn, system_id: str, catalog_version_id: str) -> dict:
     except Exception:
         pass
 
+    # NIST 800-53A assessment objectives + methods per assessed control
+    objectives_by_control: dict[str, list[str]] = {}
+    total_objectives = 0
+    methods: set[str] = set()
+    try:
+        from . import assessment
+        for r in reqs:
+            cid = r["control_id"]
+            objs = assessment.objectives(conn, cid, catalog_version_id)
+            if objs:
+                objectives_by_control[cid] = [o.id for o in objs if o.id]
+                total_objectives += len(objs)
+                for m in assessment.methods(conn, cid, catalog_version_id):
+                    methods.add(m.method)
+    except Exception:
+        pass
+
     return {"system_id": sysrow["system_id"], "system_name": sysrow["name"],
             "assessed": len(reqs), "satisfied": satisfied,
-            "other_than_satisfied": len(reqs) - satisfied, "findings": findings}
+            "other_than_satisfied": len(reqs) - satisfied, "findings": findings,
+            "objectives_by_control": objectives_by_control,
+            "total_objectives": total_objectives,
+            "methods": sorted(methods)}
+
+
+_METHOD_LABEL = {"EXAMINE": "Examine", "INTERVIEW": "Interview", "TEST": "Test"}
 
 
 def build_oscal_sar(conn, *, system_id: str, catalog_version_id: str) -> dict:
     a = assess(conn, system_id, catalog_version_id)
     result_uuid = str(uuid.uuid4())
+    obj_by_ctrl = a.get("objectives_by_control", {})
+
+    def _target_id(cid: str) -> str:
+        ids = obj_by_ctrl.get(cid)
+        return ids[0] if ids else f"{(cid or 'finding').lower()}_obj"
+
     oscal_findings = [{
         "uuid": str(uuid.uuid4()),
         "title": f"{(f['control_id'] or 'finding').upper()} — {f['result']}",
         "description": f["description"],
         "target": {
             "type": "objective-id",
-            "target-id": f"{(f['control_id'] or 'finding').lower()}_obj",
+            "target-id": _target_id(f["control_id"]),
             "status": {"state": "not-satisfied", "reason": "fail"},
         },
         "props": [
@@ -98,15 +127,31 @@ def build_oscal_sar(conn, *, system_id: str, catalog_version_id: str) -> dict:
         "results": [{
             "uuid": result_uuid,
             "title": "Control Assessment Results",
-            "description": (f"{a['assessed']} controls assessed; {a['satisfied']} satisfied, "
-                            f"{a['other_than_satisfied']} other-than-satisfied."),
+            "description": (
+                f"{a['assessed']} controls assessed; {a['satisfied']} satisfied, "
+                f"{a['other_than_satisfied']} other-than-satisfied. "
+                + (f"Assessed against {a['total_objectives']} NIST SP 800-53A "
+                   f"assessment objectives (methods: "
+                   f"{', '.join(_METHOD_LABEL.get(m, m) for m in a['methods']) or '—'})."
+                   if a.get("total_objectives") else "")),
             "start": _now(),
-            "reviewed-controls": {
-                "control-selections": [{"include-all": {}}],
-            },
+            "reviewed-controls": _reviewed_controls(a),
             "findings": oscal_findings,
         }],
     }}
+
+
+def _reviewed_controls(a: dict) -> dict:
+    """Reviewed controls + the specific 800-53A objectives they were assessed against."""
+    rc: dict = {"control-selections": [{"include-all": {}}]}
+    all_obj_ids = [oid for ids in a.get("objectives_by_control", {}).values()
+                   for oid in ids]
+    if all_obj_ids:
+        rc["control-objective-selections"] = [{
+            "description": "NIST SP 800-53A assessment objectives for the assessed controls.",
+            "include-objectives": [{"objective-id": oid} for oid in all_obj_ids],
+        }]
+    return rc
 
 
 def write_oscal_sar(sar: dict, path: str | Path) -> Path:
@@ -136,7 +181,24 @@ def write_word_sar(conn, *, system_id: str, catalog_version_id: str, path: str |
                       f"{a['other_than_satisfied']} other-than-satisfied. "
                       f"{len(a['findings'])} finding(s) below feed the POA&M.")
 
-    doc.add_paragraph("2. Findings", style="Heading 1")
+    obj_by_ctrl = a.get("objectives_by_control", {})
+    if a.get("total_objectives"):
+        doc.add_paragraph("2. Assessment Scope (NIST SP 800-53A)", style="Heading 1")
+        methods = ", ".join(_METHOD_LABEL.get(m, m) for m in a["methods"]) or "—"
+        doc.add_paragraph(
+            f"Controls were assessed against {a['total_objectives']} authoritative "
+            f"NIST SP 800-53A assessment objectives using the following methods: {methods}.")
+        tbl = doc.add_table(rows=1, cols=2); tbl.style = "Table Grid"
+        tbl.rows[0].cells[0].text = "Control"
+        tbl.rows[0].cells[1].text = "Assessment objectives"
+        for cid in sorted(obj_by_ctrl):
+            c = tbl.add_row().cells
+            c[0].text = cid.upper(); c[1].text = str(len(obj_by_ctrl[cid]))
+        findings_heading = "3. Findings"
+    else:
+        findings_heading = "2. Findings"
+
+    doc.add_paragraph(findings_heading, style="Heading 1")
     if not a["findings"]:
         doc.add_paragraph("No findings — all assessed controls satisfied.")
     else:
