@@ -46,9 +46,12 @@ def _system(conn, system_id: str) -> dict:
 
 def _requirements(conn, system_id: str, catalog_version_id: str) -> list[dict]:
     rows = conn.execute(
-        """SELECT control_id, status, statement, needs_review, reviewed_by
-             FROM implemented_requirements
-            WHERE system_id=? AND catalog_version_id=? ORDER BY control_id""",
+        """SELECT ir.control_id, ir.status, ir.statement, ir.needs_review,
+                  ir.reviewed_by, ir.origin, ps.name AS inherited_from
+             FROM implemented_requirements ir
+             LEFT JOIN implemented_requirements src ON src.ir_id=ir.source_ir_id
+             LEFT JOIN systems ps ON ps.system_id=src.system_id
+            WHERE ir.system_id=? AND ir.catalog_version_id=? ORDER BY ir.control_id""",
         (system_id, catalog_version_id)).fetchall()
     return [dict(r) for r in rows]
 
@@ -92,6 +95,10 @@ def build_oscal_ssp(conn, *, system_id: str, catalog_version_id: str,
             ],
             "by-components": [by_component],
         })
+        if r.get("origin") == "inherited" and r.get("inherited_from"):
+            implemented[-1]["props"].append(
+                {"name": "inherited-from", "value": r["inherited_from"],
+                 "ns": "https://complyforge.local/ns/oscal"})
 
     ssp = {"system-security-plan": {
         "uuid": str(uuid.uuid4()),

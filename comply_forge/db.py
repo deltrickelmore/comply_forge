@@ -355,6 +355,7 @@ _MIGRATIONS = [
     ("tenants", "logo_mime", "TEXT"),
     ("implemented_requirements", "monitor_frequency", "TEXT DEFAULT 'annual'"),
     ("implemented_requirements", "next_review", "TEXT"),
+    ("systems", "is_provider", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 

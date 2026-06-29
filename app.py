@@ -653,6 +653,51 @@ elif PAGE == "Draft Control Response":
                                      title=etitle, description=edesc, added_by=USER["username"])
                         audit("add_evidence", control_id.upper(), "note"); st.rerun()
 
+            from comply_forge import inheritance as _inh
+            with st.expander("🏛️ Common control provider & inheritance", expanded=False):
+                cur_prov = conn.execute("SELECT is_provider FROM systems WHERE system_id=?",
+                                        (sysmap[sysname],)).fetchone()
+                is_prov = st.checkbox(
+                    f"“{sysname}” is a common control provider (CCP)",
+                    value=bool(cur_prov and cur_prov[0]),
+                    help="Mark systems like an enterprise/cloud/data-center platform that "
+                         "other systems inherit controls from.")
+                if bool(is_prov) != bool(cur_prov and cur_prov[0]):
+                    _inh.set_provider(conn, sysmap[sysname], is_prov)
+                    audit("set_provider", sysname, str(is_prov)); st.rerun()
+
+                providers = [p for p in _inh.list_providers(conn, TENANT)
+                             if p["system_id"] != sysmap[sysname]]
+                if not providers:
+                    st.caption("No other systems are marked as providers yet.")
+                else:
+                    pmap = {p["name"]: p["system_id"] for p in providers}
+                    psel = st.selectbox("Inherit from provider", list(pmap))
+                    kind = st.radio("Inheritance type", ["inherited", "hybrid"],
+                                    horizontal=True,
+                                    help="inherited = provider fully satisfies; "
+                                         "hybrid = provider covers the common part, "
+                                         "this system documents the rest.")
+                    navail = len(_inh.provider_controls(conn, pmap[psel], cv))
+                    st.caption(f"{psel} has {navail} documented control(s) available.")
+                    if st.button("Inherit all available controls", key="inh_all",
+                                 disabled=not navail):
+                        res = _inh.inherit_all(
+                            conn, child_system_id=sysmap[sysname],
+                            provider_system_id=pmap[psel], catalog_version_id=cv, kind=kind)
+                        audit("inherit_all", f"{psel}->{sysname}",
+                              f"n={res['inherited_count']}")
+                        st.success(f"Inherited {res['inherited_count']} control(s); "
+                                   f"{len(res['skipped_existing'])} already answered.")
+                        st.rerun()
+
+                inh = _inh.inherited_for(conn, sysmap[sysname], cv)
+                if inh:
+                    st.markdown(f"**Inherited controls ({len(inh)}):** " +
+                                ", ".join(f"{i['control_id'].upper()}"
+                                          f"{'·H' if i['status']=='partial' else ''}"
+                                          for i in inh[:50]))
+
             st.divider()
             st.subheader("Draft an entire baseline")
             st.caption("Draft responses for every control in a baseline at once. "
